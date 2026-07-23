@@ -1,0 +1,33 @@
+{
+  "target_type": "watermarked",
+  "tokenizer": "meta-llama/Llama-3.1-8B-Instruct",
+  "n": 1000,
+  "score_percentiles": [
+    50.0,
+    90.0,
+    99.0,
+    99.9
+  ],
+  "mean_norm_lcs": 0.4230480164364942,
+  "median_norm_lcs": 0.2996598639455782,
+  "std_norm_lcs": 0.35805700030532,
+  "min_norm_lcs": 0.009345794392523364,
+  "max_norm_lcs": 1.0,
+  "norm_lcs_pct_vals": [
+    0.2996598780155182,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "mean_norm_len": 3.541304293837136,
+  "median_norm_len": 3.1315277569953617,
+  "std_norm_len": 1.95238878397149,
+  "min_norm_len": 0.9078014184397163,
+  "max_norm_len": 23.272727272727273,
+  "norm_len_pct_vals": [
+    3.1315276622772217,
+    5.338947296142578,
+    11.641666412353516,
+    20.482791900634766
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "target_type": "watermarked",
+  "embed_model": "sentence-transformers/all-mpnet-base-v2",
+  "n": 500,
+  "mean": 0.9387011528015137,
+  "std": 0.05314834415912628,
+  "min": 0.6990354657173157,
+  "max": 1.0000001192092896,
+  "score_percentiles": [
+    50.0,
+    90.0,
+    99.0,
+    99.9
+  ],
+  "score_pct_vals": [
+    0.9539753198623657,
+    0.9881134629249573,
+    1.0,
+    1.0000001192092896
+  ]
+}

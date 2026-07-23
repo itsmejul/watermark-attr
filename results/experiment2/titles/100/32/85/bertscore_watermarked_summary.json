@@ -1,0 +1,25 @@
+{
+  "target_type": "watermarked",
+  "scorer_model": "roberta-large",
+  "num_layers": 17,
+  "rescale_with_baseline": true,
+  "n": 100,
+  "mean_f1": 0.540930986404419,
+  "std_f1": 0.19236896932125092,
+  "min_f1": 0.1415310651063919,
+  "max_f1": 1.0,
+  "mean_precision": 0.26889485120773315,
+  "mean_recall": 0.8478450179100037,
+  "score_percentiles": [
+    50.0,
+    90.0,
+    99.0,
+    99.9
+  ],
+  "score_pct_vals": [
+    0.5278406143188477,
+    0.8022809624671936,
+    1.0,
+    1.0
+  ]
+}

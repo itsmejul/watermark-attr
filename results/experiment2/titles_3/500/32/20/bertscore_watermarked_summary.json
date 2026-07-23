@@ -1,0 +1,25 @@
+{
+  "target_type": "watermarked",
+  "scorer_model": "roberta-large",
+  "num_layers": 17,
+  "rescale_with_baseline": true,
+  "n": 500,
+  "mean_f1": -0.03571346402168274,
+  "std_f1": 0.11510153859853745,
+  "min_f1": -0.6462143659591675,
+  "max_f1": 0.33596333861351013,
+  "mean_precision": -0.1600351780653,
+  "mean_recall": 0.09490273147821426,
+  "score_percentiles": [
+    50.0,
+    90.0,
+    99.0,
+    99.9
+  ],
+  "score_pct_vals": [
+    -0.03705958276987076,
+    0.10043791681528091,
+    0.23454608023166656,
+    0.3117281496524811
+  ]
+}

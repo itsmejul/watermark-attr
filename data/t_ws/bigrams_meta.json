@@ -1,0 +1,11 @@
+{
+  "tokenizer": "meta-llama/Llama-3.1-8B-Instruct",
+  "add_special_tokens": false,
+  "n_samples": 64000,
+  "n_tokens_total": 10681274,
+  "n_bigrams_total": 10617378,
+  "token_len_mean": 166.89490625,
+  "token_len_min": 0,
+  "token_len_max": 782,
+  "bigram_len_mean": 165.89653125
+}

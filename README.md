@@ -1,18 +1,32 @@
-### WMCite: Waterfall-based LLM Source Attribution
+### Waterfall-based LLM Source Attribution
+This repository contains the code needed to reproduce the results of the thesis "From Memorization to Generalization: On the Limits of Text Watermarks for Source Attribution in Large Language Models" authored by Julian Mosig von Aehrenfeld.
+Evaluation results and dataset are included in `/results` and `/data`, while the actual trained LoRA adapters are not saved due to their size.
 
 ## Setup
+All experiments were conducted using Python 3.12.3 on a single Nvidia H100 GPU. The seeded dataset is saved using Git LFS:
+```
+git lfs install
+git lfs pull
+```
+Required packages are pinned in `requirements.txt`:
+```
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
 In order to use the huggingface models that were used for the experiments, you need to request access to them on Huggingface and create an access token on your huggingface account, then run
-$ huggingface-cli login
+`$ huggingface-cli login`
 to login and paste your token there. 
 Now, you will have access to all the models that your account has access to.
 
-Also, an OpenAI API is needed in `.env`, see `.env.example`.
+Also, an OpenAI API is needed in `.env`, see `.env.example` to produce the prompts for further experiments (current the prompts are present in `/data`).
 
 ## Data preparation
 Download the unarXive open subset from https://zenodo.org/records/7752754 and
 extract it to `data/unarxive_open/`.  
 
-Then run the scripts in src/data_creation/ in the following order (each
+Then run the scripts in `src/data_creation/` in the following order (each
 expects the repo root on PYTHONPATH, e.g.
 `PYTHONPATH=. python src/data_creation/sample_dataset.py`):
 
@@ -29,7 +43,7 @@ Each block is written to `data/t_ws/t_ws_batch_samples_<start>_to_<end>/`.
 Once all blocks are done, run it again with `--combine` to merge them into `data/t_ws/combined_t_ws.json`.
 
 `create_prompt_dataset.py`: creates all prompt files in
-`data/prompts` (prefix_10, perturbed titles, and questions) for both the closed and the open-keyspace set. Needs OPENAI_API_KEY. Run with `--set closed`,
+`data/prompts` (prefixes, perturbed titles, and questions) for both the closed and the open-keyspace set. Needs `OPENAI_API_KEY`. Run with `--set closed`,
 `--set open`, or no parameter for both.
 
 ## Ablations
@@ -54,9 +68,14 @@ Require a GPU. Run with `-m`, e.g.
 
 `full_pipeline.py [n_samples] [sample_type] [batch_size] [n_eval_samples] [--eval-only]`:
 trains a LoRA adapter and evaluates it at every saved epoch. `sample_type` is
-one of `abstracts_only`, `abstracts_and_titles`, `questions`. `--eval-only`
+one of `abstracts_only` (Experiment 1), `abstracts_and_titles` (Experiment 2), `questions` (Experiment 3). `--eval-only`
 skips training and only runs generation + verification on an adapter already
 saved under `lora_adapters/`.
+
+For example, to reproduce a run of the thesis' first experiment at the largest sample size, run 
+`python -m src.experiments.main.full_pipeline 63800 abstracts_only 32 1000`.
+And for experiment 2 on the smallest sample size, run:
+`python -m src.experiments.main.full_pipeline 100 abstracts_and_titles 32 1000`.
 
 `full_pipeline_unwatermarked.py [n_samples] [sample_type] [batch_size] [n_eval_samples]`:
 Same as above, trained on the original unwatermarked abstracts.

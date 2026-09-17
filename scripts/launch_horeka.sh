@@ -1,0 +1,79 @@
+#!/bin/bash -l
+#SBATCH --job-name=watermark-qwen
+#SBATCH --partition=gpu-h100
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=32
+#SBATCH --gres=gpu:1
+#SBATCH --mem=192000mb
+#SBATCH --time=2-00:00:00
+#SBATCH --export=NONE
+#SBATCH --output=/hkfs/work/workspace/scratch/id_qry6439-watermark_paper/watermark-attr/slurm-%x-%j.out
+#SBATCH --error=/hkfs/work/workspace/scratch/id_qry6439-watermark_paper/watermark-attr/slurm-%x-%j.err
+
+set -Eeuo pipefail
+
+readonly WORKSPACE_DIR="/hkfs/work/workspace/scratch/id_qry6439-watermark_paper"
+readonly PROJECT_DIR="${WORKSPACE_DIR}/watermark-attr"
+readonly VENV_DIR="${PROJECT_DIR}/.venv-qwen"
+readonly LOG_DIR="${PROJECT_DIR}/logs"
+
+usage() {
+    echo "Usage: sbatch $0 <python-module-path> [arguments ...]" >&2
+    echo "Example: sbatch $0 src.experiments.main.full_pipeline --help" >&2
+}
+
+if [[ $# -lt 1 ]]; then
+    usage
+    exit 64
+fi
+
+readonly RUN_SCRIPT="$1"
+shift
+
+if [[ ! -d "${PROJECT_DIR}" ]]; then
+    echo "Project directory not found: ${PROJECT_DIR}" >&2
+    echo "On HoreKa 2, check whether /hkfs is mounted or migrate the workspace to /hfs2." >&2
+    exit 1
+fi
+
+cd "${PROJECT_DIR}"
+
+if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
+    echo "Qwen environment not found: ${VENV_DIR}" >&2
+    echo "Create it once with a workspace-local Python >=3.10 before submitting experiments." >&2
+    exit 1
+fi
+
+source "${VENV_DIR}/bin/activate"
+
+mkdir -p "${LOG_DIR}" "${WORKSPACE_DIR}/.cache/huggingface" "${WORKSPACE_DIR}/.cache/torch"
+
+export PYTHONPATH="${PROJECT_DIR}"
+export PYTHONUNBUFFERED=1
+export TOKENIZERS_PARALLELISM=false
+export HF_HOME="${WORKSPACE_DIR}/.cache/huggingface"
+export TORCH_HOME="${WORKSPACE_DIR}/.cache/torch"
+export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+
+NVIDIA_SMI_PID=""
+cleanup() {
+    if [[ -n "${NVIDIA_SMI_PID}" ]]; then
+        kill "${NVIDIA_SMI_PID}" 2>/dev/null || true
+        wait "${NVIDIA_SMI_PID}" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT
+
+echo "Job ID: ${SLURM_JOB_ID}"
+echo "Node: ${SLURMD_NODENAME:-unknown}"
+echo "Python executable: $(command -v python)"
+echo "Python: $(python --version 2>&1)"
+echo "Module: ${RUN_SCRIPT}"
+echo "Arguments: $*"
+
+nvidia-smi
+nvidia-smi dmon -s u -d 10 > "${LOG_DIR}/gpu_util_${SLURM_JOB_ID}.log" &
+NVIDIA_SMI_PID=$!
+
+python -m "${RUN_SCRIPT}" "$@"

@@ -95,6 +95,23 @@ ranges, and item counts and create the combined corpus:
   --config data/watermark_config_qwen3_5_9b.json
 ```
 
+Then generate only the prompt files that actually depend on the watermark
+model/corpus:
+
+```bash
+.venv-qwen/bin/python -m src.data_creation.create_prompt_dataset \
+  --profile data/prompt_config_qwen3_5_9b.json \
+  --set both \
+  --tasks prefix
+```
+
+This writes `prefix_10.json` and `prefix_10_open.json` below
+`data/prompts_qwen3_5_9b/`. The title variants are based only on the unchanged
+original titles, and the questions are based only on the unchanged original
+unwatermarked abstracts, so the Qwen experiment reuses those files from
+`data/prompts/`. No OpenAI request or API key is needed for this prefix-only
+step.
+
 `create_prompt_dataset.py`: creates all prompt files in
 `data/prompts` (prefixes, perturbed titles, and questions) for both the closed and the open-keyspace set. Needs `OPENAI_API_KEY`. Run with `--set closed`,
 `--set open`, or no parameter for both.

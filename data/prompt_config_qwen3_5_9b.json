@@ -1,0 +1,7 @@
+{
+  "watermark_config": "data/watermark_config_qwen3_5_9b.json",
+  "watermarked_texts": "data/t_ws_qwen3_5_9b/combined_t_ws.json",
+  "output_dir": "data/prompts_qwen3_5_9b",
+  "reuse_prompts_dir": "data/prompts",
+  "work_dir": "src/data_creation/_batch_work_qwen3_5_9b"
+}

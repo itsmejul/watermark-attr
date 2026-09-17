@@ -3,7 +3,7 @@
 Examples:
     python -m src.data_creation.create_t_ws 3
     python -m src.data_creation.create_t_ws 1 \
-        --config data/watermark_config_qwen3_5_9b.json --limit 10
+        --config data/watermark_config_qwen3_5_9b.json --limit 50
     python -m src.data_creation.create_t_ws --combine \
         --config data/watermark_config_qwen3_5_9b.json
 

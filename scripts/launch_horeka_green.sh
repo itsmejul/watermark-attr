@@ -7,7 +7,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=124375mb
 #SBATCH --time=2-00:00:00
-#SBATCH --export=NONE
+#SBATCH --export=ALL
 #SBATCH --output=/hkfs/work/workspace/scratch/id_qry6439-watermark_paper/watermark-attr/slurm-%x-%j.out
 #SBATCH --error=/hkfs/work/workspace/scratch/id_qry6439-watermark_paper/watermark-attr/slurm-%x-%j.err
 

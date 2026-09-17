@@ -118,11 +118,11 @@ def load_subset(texts_path: str = "data/t_ws/combined_t_ws.json",
                 n: int = -1,
                 seed: int = 48,
                 prompts_path: str = "data/prompts/prefix_10.json", exclude_heldout: bool = True):
-    with open(texts_path, "r") as f:
+    with open(REPO_ROOT / texts_path, "r") as f:
         texts = json.load(f)
-    with open(keys_path, "r") as f:
+    with open(REPO_ROOT / keys_path, "r") as f:
         data = json.load(f)
-    with open(prompts_path, "r") as f:
+    with open(REPO_ROOT / prompts_path, "r") as f:
         prompts = json.load(f)
     ids = data["ids"]
     k_ps = data["k_ps"]
@@ -167,9 +167,9 @@ def load_subset(texts_path: str = "data/t_ws/combined_t_ws.json",
 
 
 
-def load_held_out_set(n_samples: int = 200):
+def load_held_out_set(n_samples: int = 200, **subset_kwargs):
     indices = list(range(HELDOUT_START, HELDOUT_END))[:n_samples]
-    data = load_subset(n=-1, exclude_heldout=False)
+    data = load_subset(n=-1, exclude_heldout=False, **subset_kwargs)
     return {k: [v[i] for i in indices] for k, v in data.items()}
 
 

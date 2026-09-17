@@ -6,8 +6,8 @@ import gc
 from typing import List, Literal, Optional, Tuple
 from tqdm.auto import tqdm
 import numpy as np
-from scipy.fft import rfft
 from scipy.sparse import vstack
+from src.util.fourier_scores import fourier_scores
 import transformers
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from sentence_transformers import SentenceTransformer
@@ -62,7 +62,7 @@ def STS_scorer(
         cos_sim = cos_sim.item()
     return cos_sim
 
-def init_watermarker(config):
+def init_watermarker(config, load_model=True):
     model_name = config["watermark_model"]
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token 
@@ -70,7 +70,7 @@ def init_watermarker(config):
         model_name,
         device_map = None,
         torch_dtype=torch.bfloat16, 
-    ).to("cuda")
+    ).to("cuda") if load_model else None
     watermark_fn = config["watermark_fn"]
     n_gram = config["n_gram"]
     kappa = config["kappa"]
@@ -145,21 +145,21 @@ def verify_watermarks_full(
 
     wf = watermarker.watermarking_fn
     N = wf.N
-    scaling = wf.scaling_factor
+    n_fns = getattr(wf, "num_fns", N - 2)
     n_rows = counts.shape[0]
 
     # Validate ground-truth k_ps
     true_k_ps_arr = np.asarray(k_ps, dtype=np.int64)
     if true_k_ps_arr.shape[0] != n_rows:
         raise ValueError(f"len(k_ps)={true_k_ps_arr.shape[0]} != n_rows={n_rows}")
-    if true_k_ps_arr.min() < 1 or true_k_ps_arr.max() > N - 2:
-        raise ValueError(f"k_ps must lie in [1, N-2] = [1, {N - 2}]")
+    if true_k_ps_arr.min() < 1 or true_k_ps_arr.max() > n_fns:
+        raise ValueError(f"k_ps must lie in [1, {n_fns}]")
 
     # Validate candidate set
     if candidate_k_ps is not None:
         valid_cols = np.unique(np.asarray(candidate_k_ps, dtype=np.int64) - 1)
-        if valid_cols.min() < 0 or valid_cols.max() >= N - 2:
-            raise ValueError(f"candidate_k_ps must lie in [1, N-2] = [1, {N - 2}]")
+        if valid_cols.min() < 0 or valid_cols.max() >= n_fns:
+            raise ValueError(f"candidate_k_ps must lie in [1, {n_fns}]")
         if top_k > valid_cols.size:
             raise ValueError(f"top_k={top_k} > |candidate_k_ps|={valid_cols.size}")
         if not np.isin(true_k_ps_arr - 1, valid_cols).all():
@@ -167,9 +167,9 @@ def verify_watermarks_full(
         n_candidates = valid_cols.size
     else:
         valid_cols = None
-        if top_k >= N - 2:
-            raise ValueError(f"top_k must be < N-2 = {N - 2}, got {top_k}")
-        n_candidates = N - 2
+        if top_k >= n_fns:
+            raise ValueError(f"top_k must be < {n_fns}, got {top_k}")
+        n_candidates = n_fns
 
     # Allocate outputs
     correct_ranks  = np.empty(n_rows, dtype=np.int64)
@@ -195,8 +195,7 @@ def verify_watermarks_full(
         row_sum[row_sum == 0] = 1.0
         dense /= row_sum
 
-        f = rfft(dense, axis=-1)[:, 1:-1].astype(np.complex64)
-        q = np.concatenate((f.real, f.imag), axis=1) * scaling     # [b, N-2]
+        q = fourier_scores(dense, wf)
 
         q_search = q[:, valid_cols] if valid_cols is not None else q
 
@@ -250,7 +249,7 @@ def verify_watermarks_full(
         "score_pct_vals":     score_pct_vals.tolist(),
     }
     suffix = "closed" if candidate_k_ps is not None else "open"
-    write_path_file(experiment_path, f"verification_{suffix}.json", results)
+    write_path_file_atomic(experiment_path, f"verification_{suffix}.json", results)
 
     end_time = time.time()
     latency_dict = load_or_create_path_file(experiment_path, "latency.json")
@@ -304,12 +303,12 @@ def verify_watermarks_open_keyspace(
 
     wf = watermarker.watermarking_fn
     N = wf.N
-    scaling = wf.scaling_factor
+    n_fns = getattr(wf, "num_fns", N - 2)
     n_rows = counts.shape[0]
 
     valid_cols = np.unique(np.asarray(candidate_k_ps, dtype=np.int64) - 1)
-    if valid_cols.min() < 0 or valid_cols.max() >= N - 2:
-        raise ValueError(f"candidate_k_ps must lie in [1, N-2] = [1, {N - 2}]")
+    if valid_cols.min() < 0 or valid_cols.max() >= n_fns:
+        raise ValueError(f"candidate_k_ps must lie in [1, {n_fns}]")
     if top_k > valid_cols.size:
         raise ValueError(f"top_k={top_k} > |candidate_k_ps|={valid_cols.size}")
     n_candidates = valid_cols.size
@@ -334,8 +333,7 @@ def verify_watermarks_open_keyspace(
         row_sum[row_sum == 0] = 1.0
         dense /= row_sum
 
-        f = rfft(dense, axis=-1)[:, 1:-1].astype(np.complex64)
-        q = np.concatenate((f.real, f.imag), axis=1) * scaling     # [b, N-2]
+        q = fourier_scores(dense, wf)
         q_search = q[:, valid_cols]
 
         part        = np.argpartition(q_search, -top_k, axis=-1)[:, -top_k:]
@@ -367,7 +365,7 @@ def verify_watermarks_open_keyspace(
         "score_percentiles":  pct_arr.tolist(),
         "score_pct_vals":     score_pct_vals.tolist(),
     }
-    write_path_file(experiment_path, save_file_name, results)
+    write_path_file_atomic(experiment_path, save_file_name, results)
 
     end_time = time.time()
     latency_dict = load_or_create_path_file(experiment_path, "latency.json")
@@ -420,15 +418,15 @@ def verify_watermarks(
 
     wf = watermarker.watermarking_fn
     N = wf.N
-    scaling = wf.scaling_factor
+    n_fns = getattr(wf, "num_fns", N - 2)
     n_rows = counts.shape[0]
 
     # Prepare / validate candidate column indices (1-based k_p -> 0-based col).
     if candidate_k_ps is not None:
         valid_cols = np.unique(np.asarray(candidate_k_ps, dtype=np.int64) - 1)
-        if valid_cols.min() < 0 or valid_cols.max() >= N - 2:
+        if valid_cols.min() < 0 or valid_cols.max() >= n_fns:
             raise ValueError(
-                f"candidate_k_ps must lie in [1, N-2] = [1, {N - 2}]"
+                f"candidate_k_ps must lie in [1, {n_fns}]"
             )
         if top_k > valid_cols.size:
             raise ValueError(
@@ -436,8 +434,8 @@ def verify_watermarks(
             )
     else:
         valid_cols = None
-        if top_k >= N - 2:
-            raise ValueError(f"top_k must be < N-2 = {N - 2}, got {top_k}")
+        if top_k >= n_fns:
+            raise ValueError(f"top_k must be < {n_fns}, got {top_k}")
 
     topk_k_p    = np.empty((n_rows, top_k), dtype=np.int32)
     topk_scores = np.empty((n_rows, top_k), dtype=np.float32)
@@ -454,8 +452,7 @@ def verify_watermarks(
         dense /= row_sum
 
         # One rFFT -> all q-scores in [1 .. N-2].
-        f = rfft(dense, axis=-1)[:, 1:-1].astype(np.complex64)
-        q = np.concatenate((f.real, f.imag), axis=1) * scaling     # [b, N-2]
+        q = fourier_scores(dense, wf)
 
         # Restrict search to candidate k_ps, if provided.
         q_search = q[:, valid_cols] if valid_cols is not None else q
@@ -482,12 +479,12 @@ def verify_watermarks(
         "top_k_p":    topk_k_p.tolist(),
         "top_scores": topk_scores.tolist(),
         "closed_set": candidate_k_ps is not None,
-        "n_candidates": int(valid_cols.size) if valid_cols is not None else (N - 2),
+        "n_candidates": int(valid_cols.size) if valid_cols is not None else n_fns,
     }
     if candidate_k_ps is not None:
-        write_path_file(experiment_path, "scores_closed.json", results)
+        write_path_file_atomic(experiment_path, "scores_closed.json", results)
     else:
-        write_path_file(experiment_path, "scores_open.json", results)
+        write_path_file_atomic(experiment_path, "scores_open.json", results)
     end_time = time.time()
     latency_dict = load_or_create_path_file(experiment_path, "latency.json")
     latency_dict["verify"] = end_time - start_time

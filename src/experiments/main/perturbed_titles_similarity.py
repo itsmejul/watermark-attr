@@ -9,6 +9,8 @@ Usage:
 """
 
 import sys
+import argparse
+from src.util.experiment_profile import ExperimentProfile, add_profile_argument
 
 sys.stdout.reconfigure(line_buffering=True)
 
@@ -55,6 +57,9 @@ def summarise(scores):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_profile_argument(parser)
+    profile = ExperimentProfile(parser.parse_args().profile)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"loading {EMBED_MODEL_NAME} on {device} ...")
     model = SentenceTransformer(EMBED_MODEL_NAME, device=device)
@@ -101,11 +106,11 @@ def main():
                   overall["max"], overall["std"]))
 
     write_path_file(
-        ["results", "perturbed_titles_similarity"],
+        ["results", "perturbed_titles_similarity" + profile.suffix],
         "mpnet_similarity.json",
         result,
     )
-    print("\nwrote results/perturbed_titles_similarity/mpnet_similarity.json")
+    print(f"\nwrote results/perturbed_titles_similarity{profile.suffix}/mpnet_similarity.json")
 
 
 if __name__ == "__main__":

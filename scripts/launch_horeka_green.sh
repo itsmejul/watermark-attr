@@ -15,7 +15,7 @@ set -Eeuo pipefail
 
 readonly WORKSPACE_DIR="/hkfs/work/workspace/scratch/id_qry6439-watermark_paper"
 readonly PROJECT_DIR="${WORKSPACE_DIR}/watermark-attr"
-readonly VENV_DIR="${PROJECT_DIR}/.venv-qwen"
+readonly VENV_DIR="${QWEN_VENV_DIR:-${PROJECT_DIR}/.venv-qwen}"
 readonly LOG_DIR="${PROJECT_DIR}/logs"
 
 usage() {
@@ -54,6 +54,8 @@ export TOKENIZERS_PARALLELISM=false
 export HF_HOME="${WORKSPACE_DIR}/.cache/huggingface"
 export TORCH_HOME="${WORKSPACE_DIR}/.cache/torch"
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+export TORCHINDUCTOR_CACHE_DIR="${PROJECT_DIR}/.cache/torchinductor-${SLURM_JOB_ID}"
+export UNSLOTH_COMPILE_LOCATION="${PROJECT_DIR}/.cache/unsloth-${SLURM_JOB_ID}"
 
 if [[ -z "${CUDA_VISIBLE_DEVICES:-}" ]]; then
     echo "CUDA_VISIBLE_DEVICES is empty; Slurm did not expose the requested GPU." >&2

@@ -9,6 +9,8 @@ Usage:
 """
 
 import json
+import argparse
+from src.util.experiment_profile import ExperimentProfile, add_profile_argument
 import sys
 import time
 from pathlib import Path
@@ -28,6 +30,14 @@ BATCH_SIZE = 512
 
 
 def main():
+    global T_WS_PATH, OUT_NPZ, OUT_META, TOKENIZER_NAME
+    parser = argparse.ArgumentParser(description=__doc__)
+    add_profile_argument(parser)
+    profile = ExperimentProfile(parser.parse_args().profile)
+    T_WS_PATH = REPO_ROOT / profile.corpus_dir / "combined_t_ws.json"
+    OUT_NPZ = REPO_ROOT / profile.corpus_dir / "bigrams.npz"
+    OUT_META = REPO_ROOT / profile.corpus_dir / "bigrams_meta.json"
+    TOKENIZER_NAME = profile.model
     print(f"loading T_ws from {T_WS_PATH} ...")
     with open(T_WS_PATH) as f:
         t_ws = json.load(f)

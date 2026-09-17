@@ -6,6 +6,11 @@ Adapters are saved at lora_adapters/{sample_type}_unwatermarked/... and
 results at results/{experiment_dir}/{prompt_type}_unwatermarked/....
 """
 
+from src.util.experiment_profile import dispatch_profile
+if __name__ == "__main__":
+    dispatch_profile("unwatermarked")
+
+from unsloth import FastLanguageModel
 import argparse
 import json
 import random

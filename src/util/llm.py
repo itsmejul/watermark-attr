@@ -3,7 +3,7 @@ from unsloth import FastLanguageModel
 import torch
 import time
 from tqdm import tqdm
-from src.util.filereader import write_path_file, load_or_create_path_file, get_lora_adapter_path
+from src.util.filereader import write_path_file, write_path_file_atomic, load_or_create_path_file, get_lora_adapter_path
 
 UNSLOTH_MAX_SEQ_LENGTH = 2048
 
@@ -13,7 +13,7 @@ def ask_batched(prompts, config, experiment_path, lora_adapter_path = None, save
     temperature = config["temperature"]
     do_sample = config["do_sample"]
     top_p = config["top_p"]
-    batch_size = 128
+    batch_size = config.get("inference_batch_size", 128)
 
     if lora_adapter_path is None:
         lora_adapter_path = experiment_path
@@ -24,6 +24,7 @@ def ask_batched(prompts, config, experiment_path, lora_adapter_path = None, save
         max_seq_length=UNSLOTH_MAX_SEQ_LENGTH,
         dtype=torch.bfloat16,
         load_in_4bit=False,
+        **({"load_in_16bit": True, "text_only": True} if config.get("profile") == "qwen" else {}),
     )
     tokenizer.pad_token = tokenizer.eos_token  # LLaMA uses EOS as pad if needed
     tokenizer.padding_side = "left"  # required for decoder-only models in batched generation
@@ -33,7 +34,9 @@ def ask_batched(prompts, config, experiment_path, lora_adapter_path = None, save
     answers = []
     for i in tqdm(range(0, len(prompts), batch_size), desc="Generating", unit="batch"):
         batch = prompts[i:i+batch_size]
-        inputs = tokenizer(batch, return_tensors="pt", padding=True, truncation=True, add_special_tokens=add_special_tokens).to(model.device)
+        inputs = tokenizer(batch, return_tensors="pt", padding=True, truncation=True, add_special_tokens=add_special_tokens,
+                           **({"max_length": UNSLOTH_MAX_SEQ_LENGTH - max_response_tokens}
+                              if config.get("profile") == "qwen" else {})).to(model.device)
         input_length = inputs["input_ids"].shape[1]
         with torch.no_grad():
             outputs = model.generate(
@@ -43,12 +46,14 @@ def ask_batched(prompts, config, experiment_path, lora_adapter_path = None, save
                 temperature=temperature,
                 top_p=top_p,
                 pad_token_id=tokenizer.eos_token_id,
+                **({"top_k": config.get("top_k", 50), "num_beams": 1}
+                   if config.get("profile") == "qwen" else {}),
             )
         for output in outputs:
             response = tokenizer.decode(output[input_length:], skip_special_tokens=True)
             answers.append(response)
 
-    write_path_file(experiment_path, save_file_name, answers)
+    write_path_file_atomic(experiment_path, save_file_name, answers)
 
     end_time = time.time()
     latency_dict = load_or_create_path_file(experiment_path, "latency.json")

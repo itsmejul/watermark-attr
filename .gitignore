@@ -182,6 +182,8 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.venv-qwen*/
+lora_adapters/qwen/**/checkpoint-*/
 env/
 venv/
 ENV/

@@ -10,6 +10,12 @@ sample_type is one of abstracts_only, abstracts_and_titles, questions.
 adapters already saved under lora_adapters/.
 """
 
+from src.util.experiment_profile import dispatch_profile
+if __name__ == "__main__":
+    dispatch_profile("watermarked")
+
+# Import Unsloth before transformers (including indirect imports).
+from unsloth import FastLanguageModel
 import argparse
 import gc
 import random

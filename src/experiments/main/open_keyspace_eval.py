@@ -10,6 +10,11 @@ Usage:
 
 """
 
+from src.util.experiment_profile import dispatch_profile
+if __name__ == "__main__":
+    dispatch_profile("open")
+
+from unsloth import FastLanguageModel
 import argparse
 import gc
 import sys

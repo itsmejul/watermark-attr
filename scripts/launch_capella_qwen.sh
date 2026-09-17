@@ -28,7 +28,7 @@ shift
 # Submit from the repository root. This avoids hard-coding whether the checkout
 # directory on Capella is named cllm-waterfall or watermark-attr.
 readonly PROJECT_DIR="${SLURM_SUBMIT_DIR}"
-readonly VENV_DIR="${PROJECT_DIR}/.venv-qwen"
+readonly VENV_DIR="${QWEN_VENV_DIR:-${PROJECT_DIR}/.venv-qwen}"
 readonly LOG_DIR="${PROJECT_DIR}/logs"
 
 if [[ ! -f "${PROJECT_DIR}/data/watermark_config_qwen3_5_9b.json" ]]; then
@@ -57,6 +57,8 @@ export TOKENIZERS_PARALLELISM=false
 export HF_HOME="${PROJECT_DIR}/.cache/huggingface"
 export TORCH_HOME="${PROJECT_DIR}/.cache/torch"
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+export TORCHINDUCTOR_CACHE_DIR="${PROJECT_DIR}/.cache/torchinductor-${SLURM_JOB_ID}"
+export UNSLOTH_COMPILE_LOCATION="${PROJECT_DIR}/.cache/unsloth-${SLURM_JOB_ID}"
 
 if [[ -z "${CUDA_VISIBLE_DEVICES:-}" ]]; then
     echo "CUDA_VISIBLE_DEVICES is empty; Slurm did not expose the requested GPU." >&2

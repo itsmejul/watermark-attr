@@ -6,15 +6,19 @@ from datasets import Dataset
 import torch
 import os
 import time
+import inspect
+from pathlib import Path
+from src.util.checkpoints import latest_complete_checkpoint
 from src.util.filereader import write_path_file, load_or_create_path_file, get_lora_adapter_path
 
 UNSLOTH_MAX_SEQ_LENGTH = 512
 
 
 class SaveAdapterAtEpochCallback(TrainerCallback):
-    def __init__(self, save_epochs, experiment_path):
+    def __init__(self, save_epochs, experiment_path, tokenizer=None):
         self.save_epochs = save_epochs
         self.experiment_path = experiment_path
+        self.tokenizer = tokenizer
 
     def on_epoch_end(self, args, state, control, model=None, **kwargs):
         epoch = round(state.epoch)
@@ -22,11 +26,13 @@ class SaveAdapterAtEpochCallback(TrainerCallback):
             save_path = get_lora_adapter_path(self.experiment_path + [str(epoch)])
             os.makedirs(save_path, exist_ok=True)
             model.save_pretrained(save_path)
+            if self.tokenizer is not None:
+                self.tokenizer.save_pretrained(save_path)
             state.save_to_json(os.path.join(save_path, "trainer_state.json"))
             print(f"Saved LoRA adapter and trainer state at epoch {epoch} to {save_path}")
 
 
-def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=False, max_length=300):
+def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=False, max_length=300, resume=False):
     """
     Fine-tune a base model with LoRA on the given texts.
 
@@ -61,8 +67,13 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
         max_seq_length=UNSLOTH_MAX_SEQ_LENGTH,
         dtype=torch.bfloat16,
         load_in_4bit=False,
+        **({"load_in_16bit": True, "text_only": True} if config.get("profile") == "qwen" else {}),
     )
     tokenizer.pad_token = tokenizer.eos_token
+    if config.get("profile") == "qwen":
+        callback.tokenizer = tokenizer
+        if any("visual" in name or "vision_tower" in name for name, _ in model.named_parameters()):
+            raise RuntimeError("Qwen text-only loading unexpectedly retained a vision tower; refusing ambiguous LoRA targets")
 
     def tokenize_function(samples):
         tokens = tokenizer(
@@ -97,10 +108,18 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
         lora_alpha=lora_alpha,
         lora_dropout=lora_dropout,
         bias=bias,
-        use_gradient_checkpointing=False, # "unsloth "
+        use_gradient_checkpointing=config.get("use_gradient_checkpointing", False),
         random_state=42,
     )
     model.print_trainable_parameters()
+    if config.get("profile") == "qwen":
+        write_path_file(experiment_path, "trainable_parameters.json", {
+            "model_class": type(model).__name__,
+            "model_commit": getattr(model.config, "_commit_hash", None),
+            "target_modules": target_modules,
+            "trainable_count": sum(p.numel() for p in model.parameters() if p.requires_grad),
+            "trainable_names": [name for name, p in model.named_parameters() if p.requires_grad],
+        })
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
 
     adapter_save_dir = get_lora_adapter_path(experiment_path)
@@ -108,15 +127,29 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
 
     learning_rate = config["learning_rate"]
     batch_size = config["batch_size"]
+    micro_batch_size = config.get("micro_batch_size", batch_size)
+    if micro_batch_size < 1 or batch_size % micro_batch_size:
+        raise ValueError("micro_batch_size must be positive and divide batch_size")
+    save_resume = config.get("save_resume_checkpoints", False)
+    last_checkpoint = latest_complete_checkpoint(adapter_save_dir) if save_resume else None
+    has_artifacts = any(Path(adapter_save_dir).glob("checkpoint-*")) or (Path(adapter_save_dir) / "adapter_config.json").exists()
+    if save_resume and not resume and has_artifacts:
+        raise FileExistsError("Training artifacts already exist. Use --resume to continue them.")
+    # Transformers 5 replaced group_by_length with train_sampling_strategy.
+    length_grouping = ({"train_sampling_strategy": "group_by_length"}
+                       if "train_sampling_strategy" in inspect.signature(TrainingArguments).parameters
+                       else {"group_by_length": True})
 
     training_args = TrainingArguments(
         output_dir=adapter_save_dir,
-        save_strategy="no",
-        per_device_train_batch_size=batch_size,
-        per_device_eval_batch_size=batch_size,
-        gradient_accumulation_steps=1,
+        save_strategy="epoch" if save_resume else "no",
+        save_total_limit=2 if save_resume else None,
+        per_device_train_batch_size=micro_batch_size,
+        per_device_eval_batch_size=config.get("eval_batch_size", batch_size),
+        gradient_accumulation_steps=batch_size // micro_batch_size,
         num_train_epochs=epochs,
         learning_rate=learning_rate,
+        **({"optim": config["optim"]} if "optim" in config else {}),
         # Constant LR with brief warmup 
         lr_scheduler_type="constant_with_warmup",
         warmup_ratio=0.03,
@@ -126,9 +159,9 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
         # Held-out eval loss every epoch
         eval_strategy="epoch",
         report_to="none",
-        group_by_length=True,
+        **length_grouping,
         length_column_name="length",
-        dataloader_num_workers=5,
+        dataloader_num_workers=config.get("dataloader_num_workers", 5),
         dataloader_pin_memory=True,
     )
 
@@ -141,9 +174,13 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
         callbacks=callbacks,
     )
     print("Starting training")
-    trainer.train()
+    if resume:
+        print(f"Resume checkpoint: {last_checkpoint or 'none complete; restarting training from the beginning'}")
+    trainer.train(resume_from_checkpoint=last_checkpoint if resume else None)
 
     trainer.model.save_pretrained(adapter_save_dir)
+    if config.get("profile") == "qwen":
+        tokenizer.save_pretrained(adapter_save_dir)
     # Persist the full log_history (per-step train loss, per-epoch eval loss,
     # grad_norm, lr) 
     trainer.state.save_to_json(os.path.join(adapter_save_dir, "trainer_state.json"))

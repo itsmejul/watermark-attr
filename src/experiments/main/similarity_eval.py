@@ -44,6 +44,9 @@ from src.util.filereader import (
     load_subset,
     write_path_file,
 )
+from src.util.experiment_profile import ExperimentProfile, add_profile_argument, QWEN_SIZES
+
+ACTIVE_PROFILE = ExperimentProfile()
 
 
 EVAL_SUBSAMPLE_SEED = 1234
@@ -93,6 +96,19 @@ PER_SAMPLE_KEYS = {
 UNWM_VARIANT = "prefix_10_unwatermarked"
 UNWM_EXPERIMENT_DIR = "experiment1"
 UNWM_PROMPTS_PATH = "data/prompts/prefix_10_unwatermarked.json"
+
+
+def configure_profile(name):
+    """Configure this CLI process; defaults remain the legacy Llama experiment."""
+    global ACTIVE_PROFILE, TOKENIZER_NAME, BIGRAMS_NPZ, EXPERIMENT_DIR
+    global SAMPLE_SIZES, UNWM_EXPERIMENT_DIR, UNWM_PROMPTS_PATH
+    ACTIVE_PROFILE = ExperimentProfile(name)
+    TOKENIZER_NAME = ACTIVE_PROFILE.model
+    BIGRAMS_NPZ = REPO_ROOT / ACTIVE_PROFILE.corpus_dir / "bigrams.npz"
+    EXPERIMENT_DIR = {s: ACTIVE_PROFILE.experiment_dir(s) for s in SAMPLE_TYPES}
+    SAMPLE_SIZES = QWEN_SIZES if name == "qwen" else (100, 500, 1000, 5000, 10000, 63800)
+    UNWM_EXPERIMENT_DIR = EXPERIMENT_DIR["abstracts_only"]
+    UNWM_PROMPTS_PATH = ACTIVE_PROFILE.prompt_path("prefix_10_unwatermarked.json")
 
 
 def _subset_dataset_indices(n, seed=SUBSET_SEED, exclude_heldout=True):
@@ -162,11 +178,12 @@ def _all_answered_epochs(experiment_dir, sub_experiment, n_samples, batch_size):
 
 
 def discover_configs(sample_types=SAMPLE_TYPES,
-                     sample_sizes=SAMPLE_SIZES,
-                     batch_sizes=BATCH_SIZES):
+                     sample_sizes=None,
+                     batch_sizes=BATCH_SIZES, unwatermarked=False):
     """Find all (sample_type, n_samples, batch_size) with answers on disk."""
+    sample_sizes = SAMPLE_SIZES if sample_sizes is None else sample_sizes
     for sample_type in sample_types:
-        subs = SUB_EXPERIMENTS[sample_type]
+        subs = [s + ("_unwatermarked" if unwatermarked else "") for s in SUB_EXPERIMENTS[sample_type]]
         experiment_dir = EXPERIMENT_DIR[sample_type]
         for n in sample_sizes:
             for bs in batch_sizes:
@@ -311,7 +328,12 @@ def bm25_result(scores, true_corpus_idx, k_ps_arr, query_source, corpus_type):
 
 class TargetBigrams:
 
-    def __init__(self, path=BIGRAMS_NPZ):
+    def __init__(self, path=None):
+        path = BIGRAMS_NPZ if path is None else Path(path)
+        if ACTIVE_PROFILE.name == "qwen":
+            meta = json.loads(path.with_name("bigrams_meta.json").read_text())
+            if meta["tokenizer"] != TOKENIZER_NAME or meta["n_samples"] != 64000:
+                raise ValueError("Bigram cache does not match the Qwen tokenizer/corpus")
         if not path.is_file():
             raise FileNotFoundError(
                 f"{path} not found — run compute_t_w_bigrams.py first."
@@ -607,18 +629,18 @@ def _run_bigram(res, ep_path, ep_dir, answers, eval_indices, correct_k_ps,
 
 def run_config(n_samples, sample_type, batch_size, metrics, res,
                target_type="watermarked", bm25_corpus="original",
-               all_epochs=False, summary_only=False, skip_existing=False):
+               all_epochs=False, summary_only=False, skip_existing=False, unwatermarked=False):
     """Run the selected metrics for one (n_samples, sample_type, batch_size)."""
     if sample_type not in SUB_EXPERIMENTS:
         raise ValueError(f"unknown sample_type={sample_type}")
     if n_samples == -1:
-        n_samples = 63800
+        n_samples = 50000 if ACTIVE_PROFILE.name == "qwen" else 63800
     experiment_dir = EXPERIMENT_DIR[sample_type]
 
-    config = load_path_file(["lora_adapters", sample_type], "train_config.json")
+    config = ACTIVE_PROFILE.train_config(sample_type)
     last_epoch = config["epochs"]
 
-    subset = load_subset(n=n_samples, prompts_path="data/prompts/prefix_10.json")
+    subset = load_subset(n=n_samples, **ACTIVE_PROFILE.subset_kwargs(unwatermarked))
     k_ps = subset["k_ps"]
     k_ps_arr = np.asarray(k_ps, dtype=np.int64)
     T_ws = subset["T_ws"]
@@ -645,8 +667,12 @@ def run_config(n_samples, sample_type, batch_size, metrics, res,
 
     print(f"\n### config: n={n_samples}  sample_type={sample_type}  bs={batch_size}  "
           f"metrics={metrics} ###")
+    evaluated_epochs = 0
 
     for sub_experiment in SUB_EXPERIMENTS[sample_type]:
+        raw_prompts = subset[sub_experiment]
+        if unwatermarked:
+            sub_experiment += "_unwatermarked"
         print(f"\n=== {sub_experiment} ===")
         if all_epochs:
             target_epochs = _all_answered_epochs(experiment_dir, sub_experiment, n_samples, batch_size)
@@ -660,7 +686,6 @@ def run_config(n_samples, sample_type, batch_size, metrics, res,
                 target_epochs = sorted({last_epoch, best_ep})
                 print(f"  best watermark epoch = {best_ep}  -> target epochs = {target_epochs}")
 
-        raw_prompts = subset[sub_experiment]
         prompt_cache = {}
 
         for ep in target_epochs:
@@ -677,6 +702,11 @@ def run_config(n_samples, sample_type, batch_size, metrics, res,
                 continue
             true_idx = np.asarray(eval_indices, dtype=np.int64)
             correct_k_ps = [k_ps[i] for i in eval_indices]
+            if ACTIVE_PROFILE.name == "qwen":
+                manifest = json.loads((ep_dir / "eval_manifest.json").read_text())
+                if manifest["eval_indices"] != eval_indices:
+                    raise ValueError(f"Evaluation subset does not match {ep_dir / 'eval_manifest.json'}")
+            evaluated_epochs += 1
             print(f"  epoch {ep}: |answers|={len(answers)}")
 
             for metric in metrics:
@@ -691,11 +721,13 @@ def run_config(n_samples, sample_type, batch_size, metrics, res,
                     targets = [pair_targets[i] for i in eval_indices]
                     _run_pairwise(metric, res, ep_path, ep_dir, answers, targets,
                                   correct_k_ps, target_type, summary_only, skip_existing)
+    if ACTIVE_PROFILE.name == "qwen" and evaluated_epochs == 0:
+        raise FileNotFoundError(f"No Qwen answers found for {sample_type}, n={n_samples}, batch={batch_size}")
 
 
 def run_unwatermarked(n_samples=1000, batch_size=32):
     corpus_type = "original"
-    subset = load_subset(n=n_samples, prompts_path=UNWM_PROMPTS_PATH)
+    subset = load_subset(n=n_samples, **ACTIVE_PROFILE.subset_kwargs(True))
     k_ps = subset["k_ps"]
     k_ps_arr = np.asarray(k_ps, dtype=np.int64)
     raw_prompts = subset["prefix_10"]
@@ -738,6 +770,7 @@ def run_unwatermarked(n_samples=1000, batch_size=32):
 
 def main():
     parser = argparse.ArgumentParser()
+    add_profile_argument(parser)
     parser.add_argument("--metrics", nargs="+", required=True, choices=METRICS)
     parser.add_argument("--n_samples", default="",
                         help="default: n_samples from the sample_type's train_config.json")
@@ -760,26 +793,29 @@ def main():
     parser.add_argument("--skip-existing", action="store_true",
                         help="skip epochs whose output files already exist")
     parser.add_argument("--unwatermarked", action="store_true",
-                        help="run the unwatermarked control instead (bm25 only)")
+                        help="evaluate the unwatermarked-control adapters/results")
     args = parser.parse_args()
+    configure_profile(args.profile)
 
     metrics = list(dict.fromkeys(args.metrics))
     res = Resources()
 
-    if args.unwatermarked:
-        if metrics != ["bm25"]:
-            raise SystemExit("--unwatermarked supports only --metrics bm25")
-        run_unwatermarked()
+    if args.unwatermarked and args.profile == "llama" and not args.sweep and args.n_samples == "" and metrics == ["bm25"]:
+        # Preserve the historical no-argument 1000-sample control command.
+        run_unwatermarked(batch_size=args.batch_size)
         print("\nDone.")
         return
 
     if args.sweep:
         sample_types = tuple(args.sample_types) if args.sample_types else SAMPLE_TYPES
-        configs = list(discover_configs(sample_types=sample_types))
+        configs = list(discover_configs(sample_types=sample_types, unwatermarked=args.unwatermarked))
+        if args.profile == "qwen" and not configs:
+            raise SystemExit("No completed Qwen configurations found. Generate answers before similarity evaluation.")
         print(f"Found {len(configs)} configs to run (metrics={metrics}):")
         for c in configs:
             print(f"  - {c}")
         t0 = time.time()
+        failed = []
         for i, (sample_type, n, bs) in enumerate(configs, 1):
             print(f"\n========================  [{i}/{len(configs)}]  "
                   f"{sample_type}  n={n}  bs={bs}  ========================")
@@ -789,16 +825,19 @@ def main():
                            bm25_corpus=args.bm25_corpus,
                            all_epochs=args.all_epochs,
                            summary_only=args.summary_only,
-                           skip_existing=args.skip_existing)
+                           skip_existing=args.skip_existing, unwatermarked=args.unwatermarked)
             except Exception as e:
                 print(f"[error] config ({sample_type}, {n}, {bs}) failed: {e!r}")
+                failed.append((sample_type, n, bs))
         dt = time.time() - t0
         h, m = divmod(int(dt), 3600)
         m, s = divmod(m, 60)
         print(f"\nAll {len(configs)} configs done in {h:d}:{m:02d}:{s:02d}.")
+        if args.profile == "qwen" and failed:
+            raise SystemExit(f"Similarity evaluation failed for {failed}; see preceding errors.")
     else:
         if args.n_samples == "":
-            config = load_path_file(["lora_adapters", args.sample_type], "train_config.json")
+            config = ACTIVE_PROFILE.train_config(args.sample_type)
             n_samples = config["n_samples"]
         else:
             n_samples = int(args.n_samples)
@@ -807,7 +846,7 @@ def main():
                    bm25_corpus=args.bm25_corpus,
                    all_epochs=args.all_epochs,
                    summary_only=args.summary_only,
-                   skip_existing=args.skip_existing)
+                   skip_existing=args.skip_existing, unwatermarked=args.unwatermarked)
     print("\nDone.")
 
 

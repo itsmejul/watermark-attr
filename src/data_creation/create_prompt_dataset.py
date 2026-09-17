@@ -421,6 +421,8 @@ def main():
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--reuse-prompts-dir", default=None)
     parser.add_argument("--work-dir", default=None)
+    parser.add_argument("--include-unwatermarked-prefix", action="store_true",
+                        help="also prepare tokenizer-specific control prefixes from original abstracts")
     args = parser.parse_args()
 
     profile = _load_profile(args.profile)
@@ -471,6 +473,12 @@ def main():
 
     if args.set in ("closed", "both"):
         print("=== closed set (64000 samples) ===")
+        if args.include_unwatermarked_prefix:
+            prefixes = build_prefix(load_abstracts(N_CLOSED), watermark_config)
+            if len(prefixes) != N_CLOSED:
+                raise ValueError("Insufficient original abstracts for control prefixes")
+            write_path_file_atomic(list(output_dir.parts), "prefix_10_unwatermarked.json", prefixes)
+            generated_files.append("prefix_10_unwatermarked.json")
         if "prefix" in tasks:
             t_ws = _load_json(watermarked_texts_path)
             if len(t_ws) != N_CLOSED:

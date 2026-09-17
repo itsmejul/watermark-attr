@@ -1,6 +1,8 @@
 from pathlib import Path
 import json
+import os
 import random
+import tempfile
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -74,6 +76,30 @@ def write_path_file(file_path, file_name, data):
         experiment_path.mkdir(parents=True, exist_ok=True)
     with open(experiment_path / file_name, "w") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
+def write_path_file_atomic(file_path, file_name, data):
+    """Write JSON without leaving a truncated file if a job is interrupted."""
+    experiment_path = _resolve(file_path)
+    experiment_path.mkdir(parents=True, exist_ok=True)
+    destination = experiment_path / file_name
+    fd, temporary_name = tempfile.mkstemp(
+        dir=experiment_path,
+        prefix=f".{file_name}.",
+        suffix=".tmp",
+        text=True,
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary_name, destination)
+    except BaseException:
+        try:
+            os.unlink(temporary_name)
+        except FileNotFoundError:
+            pass
+        raise
 
 def load_or_create_path_file(path, filename):
     '''

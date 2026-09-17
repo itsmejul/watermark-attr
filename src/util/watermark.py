@@ -8,11 +8,18 @@ from tqdm.auto import tqdm
 import numpy as np
 from scipy.fft import rfft
 from scipy.sparse import vstack
+import transformers
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from sentence_transformers import SentenceTransformer
 import torch
 device = "cuda" if torch.cuda.is_available() else "cpu"
-from src.util.filereader import write_path_file, load_or_create_path_file
+from src.util.filereader import (
+    file_exists,
+    load_or_create_path_file,
+    load_path_file,
+    write_path_file,
+    write_path_file_atomic,
+)
 from waterfall.WatermarkingFnFourier import WatermarkingFnFourier
 from waterfall.WatermarkingFnSquare import WatermarkingFnSquare
 from  waterfall.WatermarkerBase import Watermarker
@@ -488,25 +495,128 @@ def verify_watermarks(
     return topk_k_p, topk_scores
 
 
-def watermark(T_os, ids, k_ps, config, experiment_path, return_sts_scores = False):
+def _disable_waterfall_custom_beam_search_for_sampling():
+    """Keep Waterfall 0.3.4's group-beam shim out of sampling calls.
+
+    Waterfall 0.3.4 adds ``custom_generate`` globally on Transformers >=5.3,
+    including for ordinary sampling.  The bundled implementation only accepts
+    group beam search and otherwise rejects the generation configuration.
+    """
+    import waterfall.WatermarkerBase as waterfall_base
+
+    removed = []
+    for key in ("custom_generate", "trust_remote_code"):
+        if key in waterfall_base.additional_generation_config:
+            waterfall_base.additional_generation_config.pop(key)
+            removed.append(key)
+    if removed:
+        print(
+            "Disabled Waterfall's group-beam custom_generate hook for sampling "
+            f"({', '.join(removed)})."
+        )
+
+
+def watermark(
+    T_os,
+    ids,
+    k_ps,
+    config,
+    experiment_path,
+    return_sts_scores=False,
+    resume=False,
+    checkpoint_every=0,
+    progress_metadata=None,
+    max_new_texts=None,
+):
     print("Starting watermarking")
     start_time = time.time()
+    if not (len(T_os) == len(ids) == len(k_ps)):
+        raise ValueError("T_os, ids, and k_ps must have the same length")
+
+    T_ws = []
+    all_sts_scores = []
+    if resume and file_exists(experiment_path, "watermarked_texts.json"):
+        T_ws = load_path_file(experiment_path, "watermarked_texts.json")
+        if not isinstance(T_ws, list) or len(T_ws) > len(T_os):
+            raise ValueError(
+                "Existing watermarked_texts.json is not a valid partial result "
+                f"for this batch ({len(T_ws) if isinstance(T_ws, list) else 'not a list'})."
+            )
+        if return_sts_scores and T_ws:
+            if not file_exists(experiment_path, "sts_scores.json"):
+                raise ValueError("Cannot resume: sts_scores.json is missing")
+            all_sts_scores = load_path_file(experiment_path, "sts_scores.json")
+            if len(all_sts_scores) != len(T_ws):
+                raise ValueError("Cannot resume: text and STS checkpoint lengths differ")
+        print(f"Resuming after {len(T_ws)} of {len(T_os)} texts")
+
+    initial_completed_count = len(T_ws)
+
+    def save_checkpoint():
+        write_path_file_atomic(experiment_path, "watermarked_texts.json", T_ws)
+        if return_sts_scores:
+            write_path_file_atomic(experiment_path, "sts_scores.json", all_sts_scores)
+        progress = dict(progress_metadata or {})
+        elapsed_seconds = time.time() - start_time
+        generated_this_run = len(T_ws) - initial_completed_count
+        progress.update(
+            {
+                "completed_count": len(T_ws),
+                "expected_count": len(T_os),
+                "complete": len(T_ws) == len(T_os),
+                "started_at_count": initial_completed_count,
+                "generated_this_run": generated_this_run,
+                "elapsed_seconds_this_run": elapsed_seconds,
+                "seconds_per_new_text": (
+                    elapsed_seconds / generated_this_run
+                    if generated_this_run
+                    else None
+                ),
+            }
+        )
+        write_path_file_atomic(experiment_path, "progress.json", progress)
+
+    if len(T_ws) == len(T_os):
+        print("Batch is already complete; no model load needed.")
+        save_checkpoint()
+        if return_sts_scores:
+            return T_ws, all_sts_scores
+        return T_ws
+
+    if max_new_texts is not None and max_new_texts <= 0:
+        raise ValueError("max_new_texts must be positive")
+
+    resume_index = len(T_ws)
+    run_end_index = len(T_os)
+    if max_new_texts is not None:
+        run_end_index = min(run_end_index, resume_index + max_new_texts)
+
     model_name = config["watermark_model"]
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token 
     print("Loading model...")
+    if not torch.cuda.is_available():
+        raise RuntimeError("Watermark generation requires a CUDA GPU")
+    model_dtype_kwargs = (
+        {"dtype": torch.bfloat16}
+        if tuple(map(int, transformers.__version__.split(".")[:2])) >= (4, 56)
+        else {"torch_dtype": torch.bfloat16}
+    )
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        device_map = None,
-        torch_dtype=torch.bfloat16, 
+        device_map=None,
+        **model_dtype_kwargs,
     ).to("cuda")
+    model.eval()
 
     watermark_fn = config["watermark_fn"]
     n_gram = config["n_gram"]
     kappa = config["kappa"]
     do_sample = config["do_sample_watermark"]
     if do_sample:  # sampling
+        _disable_waterfall_custom_beam_search_for_sampling()
         temperature = config["temperature_watermark"]
+        top_k = config.get("top_k_watermark", 50)
         top_p = config["top_p_watermark"]
         num_return_sequences = config["num_return_sequences"]
     else:          # beam search 
@@ -528,36 +638,70 @@ def watermark(T_os, ids, k_ps, config, experiment_path, return_sts_scores = Fals
     else:
         raise ValueError(f"Invalid watermarking function: {watermark_fn}")
 
-    T_ws = []
     if return_sts_scores:
-        all_sts_scores = []
         sts_model_name = config["sts_model"]
         sts_model = SentenceTransformer(sts_model_name, device=device)
 
-    for text, watermark_id, k_p in tqdm(zip(T_os, ids, k_ps), total=len(T_os), desc="Watermarking texts"):
-        print(f"ID: {watermark_id}")
-        print(f"K_p: {k_p}")
-        print(f"Kappa: {kappa}")
-        print(f"Ngram: {n_gram}")
-        watermarker = Watermarker(tokenizer, model, watermark_id, kappa, k_p, n_gram, watermarkingFnClass)
-        watermarker.set_id(watermark_id)  
+    first_id = int(ids[resume_index])
+    first_k_p = int(k_ps[resume_index])
+    watermarker = Watermarker(
+        tokenizer,
+        model,
+        first_id,
+        kappa,
+        first_k_p,
+        n_gram,
+        watermarkingFnClass,
+    )
+    chat_template_kwargs = config.get("chat_template_kwargs", {})
+
+    remaining = zip(
+        T_os[resume_index:run_end_index],
+        ids[resume_index:run_end_index],
+        k_ps[resume_index:run_end_index],
+    )
+    for local_index, (text, watermark_id, k_p) in enumerate(
+        tqdm(
+            remaining,
+            total=run_end_index - resume_index,
+            desc="Watermarking texts",
+        ),
+        start=resume_index,
+    ):
+        watermark_id = int(watermark_id)
+        k_p = int(k_p)
+        watermarker.k_p = k_p
+        if watermarker.id != watermark_id:
+            watermarker.set_id(watermark_id)
+        else:
+            # Preserve the per-instance LRU permutation cache while changing k_p.
+            watermarker.compute_phi(watermarkingFnClass)
         
         paraphrasing_prompt = tokenizer.apply_chat_template(
             [
                 {"role":"system", "content":PROMPT},
                 {"role":"user", "content":text},
-            ], tokenize=False, add_generation_prompt = True) + PRE_PARAPHRASED
+            ],
+            tokenize=False,
+            add_generation_prompt=True,
+            **chat_template_kwargs,
+        ) + PRE_PARAPHRASED
     
         if do_sample: # sampling   
             watermarked = watermarker.generate(
                 paraphrasing_prompt,
-                return_scores=True,
+                return_scores=multiple_versions,
                 max_new_tokens=int(len(paraphrasing_prompt) * 1.5),
-                do_sample= True,
-                temperature = temperature,
-                top_p = top_p,
-                num_return_sequences = num_return_sequences,
-                logits_processor = [],
+                do_sample=True,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+                repetition_penalty=1.0,
+                num_beams=1,
+                num_beam_groups=1,
+                diversity_penalty=0.0,
+                num_return_sequences=num_return_sequences,
+                logits_processor=[],
             )
         else: # beam search
             watermarked = watermarker.generate(
@@ -573,41 +717,35 @@ def watermark(T_os, ids, k_ps, config, experiment_path, return_sts_scores = Fals
                 diversity_penalty = diversity_penalty,    # Only for beam search to make different beams more diverse
                 logits_processor = [],
                 )
-        print("Watermarked")
-        print(watermarked)
-        
         if multiple_versions:
             if num_paraphrased_versions == 1:
                 # Select best paraphrasing based on q_score and semantic similarity
                 sts_scores = STS_scorer(text, watermarked["text"], sts_model)
                 selection_score = sts_scores * STS_scale + torch.from_numpy(watermarked["q_score"]).squeeze() 
                 selection = torch.argmax(selection_score).item() 
-                print("Selection score")
-                print(selection_score)
-                print("selection")
-                print(selection)
                 T_w = watermarked["text"][selection]
-                print(T_w)
                 T_ws.append(T_w)
             else:
                 raise NotImplementedError("Currently, only paraphrased_versions=1 is supported")
         else:  # only one version was returned from watermarked, no need for STS scoring
-            T_w = watermarked["text"][0]
+            T_w = watermarked[0]
             T_ws.append(T_w)
             if return_sts_scores:
                 sts_score = STS_scorer(text, T_w, sts_model)
                 all_sts_scores.append(sts_score)
-        print("TW")
-        print(T_w)
-    
-    write_path_file(experiment_path, "watermarked_texts.json", T_ws)
-    if return_sts_scores:
-        write_path_file(experiment_path, "sts_scores.json", all_sts_scores)
+
+        completed_this_batch = local_index + 1
+        if checkpoint_every and (
+            completed_this_batch % checkpoint_every == 0
+            or completed_this_batch == run_end_index
+        ):
+            save_checkpoint()
+
+    save_checkpoint()
     end_time = time.time()
-    latency = end_time - start_time
     latency_dict = load_or_create_path_file(experiment_path, "latency.json")
     latency_dict["watermark"] = end_time - start_time
-    write_path_file(experiment_path, "latency.json", latency_dict)
+    write_path_file_atomic(experiment_path, "latency.json", latency_dict)
     if return_sts_scores:
         return T_ws, all_sts_scores
     else:

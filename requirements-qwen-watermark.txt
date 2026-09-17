@@ -1,0 +1,9 @@
+# Separate environment for the Qwen 3.5 watermarking arm. Do not install this
+# over the Transformers 4.56 / Waterfall 0.2.x environment used for Llama.
+torch==2.7.1
+transformers==5.17.0
+waterfall==0.3.4
+sentence-transformers==6.0.1
+accelerate==1.13.0
+numpy>=1.25,<2.5
+scipy>=1.13,<2.0

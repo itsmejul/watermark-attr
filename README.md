@@ -42,6 +42,59 @@ Pass nothing to watermark all samples at once.
 Each block is written to `data/t_ws/t_ws_batch_samples_<start>_to_<end>/`. 
 Once all blocks are done, run it again with `--combine` to merge them into `data/t_ws/combined_t_ws.json`.
 
+### Qwen 3.5 watermarking on HoreKa Green
+
+The Qwen corpus is a separate experimental arm. It uses the unchanged
+`data/keys.json` keys and watermark parameters, disables Qwen reasoning, and
+writes only below `data/t_ws_qwen3_5_9b/`. The Llama environment and
+`data/t_ws/` corpus remain untouched. The Qwen config explicitly retains the
+old Transformer's implicit `top_k=50` in addition to temperature 0.5 and
+top-p 0.9; these intentionally differ from Qwen's generic recommendations so
+the model is the changed variable.
+
+Create its separate environment from the repository root (the system Python
+on Green is too old for current Waterfall):
+
+```bash
+uv python install 3.12
+uv venv --python 3.12 .venv-qwen
+uv pip install --python .venv-qwen/bin/python -r requirements-qwen-watermark.txt
+source .venv-qwen/bin/activate
+export HF_HOME=/hkfs/work/workspace/scratch/id_qry6439-watermark_paper/.cache/huggingface
+mkdir -p "$HF_HOME"
+hf download Qwen/Qwen3.5-9B
+```
+
+Qwen3.5-9B is public; the explicit download populates the same workspace cache
+used by the launcher and avoids 13 jobs trying to download the model together.
+
+Run a 50-text timing test in batch 1. Its output is a valid partial checkpoint,
+so the later full batch-1 job resumes at text 51:
+
+```bash
+sbatch --partition=dev_accelerated --time=01:00:00 \
+  scripts/launch_horeka_green.sh src.data_creation.create_t_ws 1 \
+  --config data/watermark_config_qwen3_5_9b.json --limit 50
+```
+
+After checking the timing, submit the 13 corpus batches:
+
+```bash
+for batch in $(seq 1 13); do
+  sbatch scripts/launch_horeka_green.sh src.data_creation.create_t_ws "$batch" \
+    --config data/watermark_config_qwen3_5_9b.json
+done
+```
+
+Jobs atomically checkpoint every 100 texts. Re-running the same command safely
+resumes a partial batch. After every batch is complete, validate hashes,
+ranges, and item counts and create the combined corpus:
+
+```bash
+.venv-qwen/bin/python -m src.data_creation.create_t_ws --combine \
+  --config data/watermark_config_qwen3_5_9b.json
+```
+
 `create_prompt_dataset.py`: creates all prompt files in
 `data/prompts` (prefixes, perturbed titles, and questions) for both the closed and the open-keyspace set. Needs `OPENAI_API_KEY`. Run with `--set closed`,
 `--set open`, or no parameter for both.

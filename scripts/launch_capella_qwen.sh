@@ -7,8 +7,11 @@
 #SBATCH --mem=108G
 #SBATCH --time=20:00:00
 #SBATCH --export=ALL
-#SBATCH --output=slurm-%x-%j.out
-#SBATCH --error=slurm-%x-%j.err
+#SBATCH --output=job_outputs/slurm-%x-%j.out
+#SBATCH --error=job_outputs/slurm-%x-%j.err
+
+# Submit from the repository root with job_outputs/ already present. Slurm
+# opens these files before running this script (Git tracks a .gitkeep there).
 
 set -Eeuo pipefail
 

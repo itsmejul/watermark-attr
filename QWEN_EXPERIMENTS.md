@@ -4,6 +4,12 @@ Use `--profile qwen` on the existing main experiment commands. Omitting it
 retains the Llama arm; do not run Llama training/verification in the new environment.
 Neither `.venv` nor the running watermark environment `.venv-qwen` is modified.
 
+Slurm stdout/stderr from the launchers is saved as
+`job_outputs/slurm-<job-name>-<job-id>.out` and `.err` in the repository.
+Git includes the directory; if necessary, run `mkdir -p job_outputs` **before**
+`sbatch` (Slurm opens logs before the script starts). The 18-job submission helper
+also creates it. Existing jobs/logs are not moved; GPU utilization logs stay in `logs/`.
+
 ## What stays the same
 
 - Six sizes: **100, 500, 1000, 5000, 10000, 50000** (the last Llama size was 63800).

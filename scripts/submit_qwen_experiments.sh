@@ -27,6 +27,8 @@ if [[ ! -x "${QWEN_VENV_DIR}/bin/python" ]]; then
     echo "Missing training environment: ${QWEN_VENV_DIR}" >&2
     exit 1
 fi
+# Slurm opens stdout/stderr before the job script itself starts.
+mkdir -p job_outputs
 for sample_type in abstracts_only abstracts_and_titles questions; do
     for n in 100 500 1000 5000 10000 50000; do
         "${QWEN_VENV_DIR}/bin/python" -m src.experiments.main.full_pipeline \

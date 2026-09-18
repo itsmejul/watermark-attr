@@ -23,6 +23,8 @@ misc_stuff/
 *.aux
 *.log
 *.out
+/job_outputs/*
+!/job_outputs/.gitkeep
 *.fls
 *.fdb_latexmk
 *.synctex.gz

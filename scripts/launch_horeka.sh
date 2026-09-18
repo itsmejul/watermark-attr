@@ -8,8 +8,10 @@
 #SBATCH --mem=192000mb
 #SBATCH --time=2-00:00:00
 #SBATCH --export=NONE
-#SBATCH --output=/hkfs/work/workspace/scratch/id_qry6439-watermark_paper/watermark-attr/slurm-%x-%j.out
-#SBATCH --error=/hkfs/work/workspace/scratch/id_qry6439-watermark_paper/watermark-attr/slurm-%x-%j.err
+#SBATCH --output=/hkfs/work/workspace/scratch/id_qry6439-watermark_paper/watermark-attr/job_outputs/slurm-%x-%j.out
+#SBATCH --error=/hkfs/work/workspace/scratch/id_qry6439-watermark_paper/watermark-attr/job_outputs/slurm-%x-%j.err
+
+# job_outputs/ must exist before submission; Git tracks a .gitkeep there.
 
 set -Eeuo pipefail
 

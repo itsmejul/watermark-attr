@@ -33,9 +33,15 @@ also creates it. Existing jobs/logs are not moved; GPU utilization logs stay in 
 - Qwen chat templates always receive `enable_thinking=False`. Experiment 1
   remains raw-text completion, not a new chat/reasoning task.
 - BF16 LoRA with Unsloth, **not QLoRA**. Text-only loading excludes the vision
-  tower. Initial A100 settings: microbatch 1, accumulation 32, eval batch 1,
-  inference batch 4, Unsloth gradient checkpointing. Memory fit needs GPU testing.
-  Adjust with `--micro-batch-size` / `--inference-batch-size` before production.
+  tower. H100 training defaults now match Llama's batching: microbatch 32,
+  accumulation 1 (effective batch 32), loss-evaluation batch 32, and gradient
+  checkpointing disabled. Inference batch is 64 and is a separate setting.
+  These replace the initial memory-conservative A100 settings (microbatch 1,
+  accumulation 32, eval batch 1, Unsloth gradient checkpointing). Test GPU memory
+  fit before production; Qwen need not fit the same batch as Llama. Adjust with
+  `--micro-batch-size` / `--inference-batch-size` as needed. Existing jobs do not
+  pick up config edits, and existing run manifests reject changed settings;
+  these defaults are not an automatic migration of already-started runs.
 - The exact old target list `q_proj,k_proj,v_proj,o_proj` is retained. Qwen's
   linear-attention blocks use other names, so this targets its full-attention
   blocks only. It is **not equivalent layer coverage** to Llama. The run records
@@ -158,6 +164,84 @@ generation stage restarts for that prompt/epoch. No automatic Slurm requeue is
 enabled. Only resubmit after the previous job has stopped. Manifests and a
 per-adapter job lock reject incompatible inputs/settings and concurrent writers.
 `--train-only` and `--eval-only` are available if stages must be split later.
+
+### Restarting the old microbatch-1 runs with H100 settings
+
+The new defaults are training microbatch 32, accumulation 1, loss-evaluation
+batch 32, gradient checkpointing disabled, and inference batch 64. These change
+the recorded run configuration. Do not delete or edit manifests to bypass the
+guard. The procedure below intentionally restarts **all 18 main runs**, including
+any completed 100/500 training, preserving the old files in a recoverable archive.
+No dependencies, Llama results, watermarked texts, prompts, control runs, or smoke
+runs are changed. Open-keyspace results under the selected main-run directories
+are archived with their corresponding adapters.
+
+First inspect `squeue --me -o '%.18i %.12T %.80j'`, cancel only the old Qwen main
+experiment job IDs with `scancel ID1 ID2 ...`, and wait until those IDs disappear
+from `squeue` (including jobs in COMPLETING state). Cancel pending jobs too.
+Do not archive directories while a job can still write into them.
+
+After pulling this branch, run this block from the repository root on Capella:
+
+```bash
+(
+  set -euo pipefail
+  test -f data/experiment_config_qwen.json
+  restart_archive=$(mktemp -d "$PWD/qwen-restart-backup-XXXXXXXX")
+  for old_path in \
+    lora_adapters/qwen/abstracts_only \
+    lora_adapters/qwen/abstracts_and_titles \
+    lora_adapters/qwen/questions \
+    results/experiment1-qwen/prefix_10 \
+    results/experiment2-qwen/titles \
+    results/experiment2-qwen/titles_1 \
+    results/experiment2-qwen/titles_2 \
+    results/experiment2-qwen/titles_3 \
+    results/experiment3-qwen/train_questions \
+    results/experiment3-qwen/held_out_questions
+  do
+    if [[ -d "$old_path" ]]; then
+      mkdir -p "$restart_archive/$(dirname "$old_path")"
+      mv -- "$old_path" "$restart_archive/$old_path"
+    fi
+  done
+  echo "Old runs preserved in: $restart_archive"
+)
+```
+
+Archive only once, before submitting new runs. First use experiment 2 at size
+100 as a full-pipeline H100 check; unlike the five-example smoke test, this also
+exercises a full inference batch of 64. It is a real 100-epoch production run:
+
+```bash
+export QWEN_VENV_DIR="$PWD/.venv-qwen-experiments"
+mkdir -p job_outputs
+sbatch --job-name=qwen-h100-check-exp2-100 \
+  scripts/launch_capella_qwen.sh src.experiments.main.full_pipeline \
+  100 abstracts_and_titles 32 1000 --profile qwen
+```
+
+Check that this job finishes COMPLETED with exit code 0:0, not just training
+completion. Memory fit at the requested settings is not guaranteed; stop here
+if it runs out of memory. Passing this subset is not a guarantee for every
+sequence-length mix in the larger runs. Then submit the remaining 17:
+
+```bash
+for experiment in abstracts_only abstracts_and_titles questions; do
+  for size in 100 500 1000 5000 10000 50000; do
+    if [[ "$experiment" == abstracts_and_titles && "$size" == 100 ]]; then
+      continue
+    fi
+    sbatch --job-name="qwen-${experiment}-${size}" \
+      scripts/launch_capella_qwen.sh src.experiments.main.full_pipeline \
+      "$size" "$experiment" 32 1000 --profile qwen
+  done
+done
+```
+
+These are fresh runs: no `--resume`. Future restarts of these new runs can use
+`--resume` with unchanged settings. The Capella launcher still requests 20 hours;
+use the measured new throughput to decide if larger runs need checkpoint resumes.
 
 ## 5. Controls and downstream evaluation
 

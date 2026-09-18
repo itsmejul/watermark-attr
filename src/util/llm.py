@@ -4,6 +4,7 @@ import torch
 import time
 from tqdm import tqdm
 from src.util.filereader import write_path_file, write_path_file_atomic, load_or_create_path_file, get_lora_adapter_path
+from src.util.qwen_compat import restore_qwen_text_architecture
 
 UNSLOTH_MAX_SEQ_LENGTH = 2048
 
@@ -26,6 +27,8 @@ def ask_batched(prompts, config, experiment_path, lora_adapter_path = None, save
         load_in_4bit=False,
         **({"load_in_16bit": True, "text_only": True} if config.get("profile") == "qwen" else {}),
     )
+    if config.get("profile") == "qwen":
+        restore_qwen_text_architecture(model)
     tokenizer.pad_token = tokenizer.eos_token  # LLaMA uses EOS as pad if needed
     tokenizer.padding_side = "left"  # required for decoder-only models in batched generation
     FastLanguageModel.for_inference(model)

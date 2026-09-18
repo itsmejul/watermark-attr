@@ -9,6 +9,7 @@ import time
 import inspect
 from pathlib import Path
 from src.util.checkpoints import latest_complete_checkpoint
+from src.util.qwen_compat import restore_qwen_text_architecture
 from src.util.filereader import write_path_file, load_or_create_path_file, get_lora_adapter_path
 
 UNSLOTH_MAX_SEQ_LENGTH = 512
@@ -71,6 +72,7 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
     )
     tokenizer.pad_token = tokenizer.eos_token
     if config.get("profile") == "qwen":
+        restore_qwen_text_architecture(model)
         callback.tokenizer = tokenizer
         if any("visual" in name or "vision_tower" in name for name, _ in model.named_parameters()):
             raise RuntimeError("Qwen text-only loading unexpectedly retained a vision tower; refusing ambiguous LoRA targets")

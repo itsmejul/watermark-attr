@@ -1,0 +1,26 @@
+{
+  "watermark_config": "data/watermark_config_qwen3_5_9b.json",
+  "watermark_model": "Qwen/Qwen3.5-9B",
+  "watermarked_texts": "data/t_ws_qwen3_5_9b/combined_t_ws.json",
+  "generated_tasks": [
+    "prefix"
+  ],
+  "generated_files": [
+    "prefix_10_unwatermarked.json",
+    "prefix_10.json",
+    "prefix_10_open.json"
+  ],
+  "reuse_prompts_dir": "data/prompts",
+  "reused_files": [
+    "titles_1.json",
+    "titles_2.json",
+    "titles_3.json",
+    "questions.json",
+    "titles_1_open.json",
+    "titles_2_open.json",
+    "titles_3_open.json",
+    "questions_open.json"
+  ],
+  "question_source": "original unwatermarked abstracts",
+  "title_source": "original titles"
+}

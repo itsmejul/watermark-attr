@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "config_file": "data/watermark_config_qwen3_5_9b.json",
+  "config_sha256": "955a201c833738afab0b5c56f63b81e8b140b7f49e1ff7e359a2daa3bc0c0302",
+  "keys_file": "data/keys.json",
+  "keys_sha256": "960017983de434e0a1f83d9ed551c0356f8666bae13ae4be43d508f6153a400c",
+  "watermark_model": "Qwen/Qwen3.5-9B",
+  "start_index": 30000,
+  "end_index_exclusive": 35000,
+  "expected_count": 5000
+}

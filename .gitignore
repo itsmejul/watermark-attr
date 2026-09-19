@@ -186,6 +186,7 @@ celerybeat.pid
 .venv
 .venv-qwen*/
 lora_adapters/qwen/**/checkpoint-*/
+/full_models/
 /qwen-restart-backup-*/
 env/
 venv/

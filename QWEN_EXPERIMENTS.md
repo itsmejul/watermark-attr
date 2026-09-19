@@ -4,6 +4,44 @@ Use `--profile qwen` on the existing main experiment commands. Omitting it
 retains the Llama arm; do not run Llama training/verification in the new environment.
 Neither `.venv` nor the running watermark environment `.venv-qwen` is modified.
 
+## Full-parameter / continued-pretraining arm
+
+`full_pipeline_pretrained.py` is the isolated full-parameter counterpart to the
+LoRA pipeline. It defaults to the 1,000-example arm, trains for five epochs, and
+saves an inference-ready full model plus a resumable Trainer checkpoint after
+every epoch. The positional arguments and the Qwen operational flags match the
+main pipeline:
+
+```bash
+python -m src.experiments.main.full_pipeline_pretrained \
+  1000 abstracts_only 32 1000 --profile qwen --preflight
+
+sbatch --time=20:00:00 --job-name=qwen-full-1000 \
+  scripts/launch_capella_qwen.sh src.experiments.main.full_pipeline_pretrained \
+  1000 abstracts_only 32 1000 --profile qwen --train-only
+```
+
+The full-parameter arm writes models below `full_models/qwen/` and results below
+`results/experimentN-qwen-pretrained/`; it never reads or writes LoRA adapter or
+LoRA result directories. Epoch models live at `<run>/<epoch>/model/`, while the
+latest optimizer/scheduler/RNG state lives below `<run>/resume_checkpoints/`.
+Use `--resume` after a stopped job and `--eval-only` to run generation and
+verification separately from expensive training.
+
+The single-H100 defaults are deliberately conservative: BF16 weights,
+`paged_adamw_8bit`, microbatch 1, effective batch 32 via accumulation, and
+Unsloth gradient checkpointing. Full fine-tuning uses a lower learning rate of
+`1e-5`; LoRA's `2e-4` is generally too aggressive when every parameter is
+trainable. This is still a borderline fit on an 80 GB H100. Run the isolated
+`--smoke` job first and inspect peak VRAM; paging can make an otherwise fitting
+run substantially slower. Five BF16 epoch models plus one resumable checkpoint
+and the model cache require roughly 150--200 GB of free local storage.
+
+For `abstracts_only`, this is causal continued pretraining on the watermarked
+abstract text. The title and question variants remain supervised full-parameter
+fine-tuning because they retain the chat-formatted prompt/answer examples used
+by the matching LoRA experiments.
+
 Slurm stdout/stderr from the launchers is saved as
 `job_outputs/slurm-<job-name>-<job-id>.out` and `.err` in the repository.
 Git includes the directory; if necessary, run `mkdir -p job_outputs` **before**
@@ -33,9 +71,10 @@ also creates it. Existing jobs/logs are not moved; GPU utilization logs stay in 
 - Qwen chat templates always receive `enable_thinking=False`. Experiment 1
   remains raw-text completion, not a new chat/reasoning task.
 - BF16 LoRA with Unsloth, **not QLoRA**. Text-only loading excludes the vision
-  tower. H100 training defaults now match Llama's batching: microbatch 32,
-  accumulation 1 (effective batch 32), loss-evaluation batch 32, and gradient
-  checkpointing disabled. Inference batch is 64 and is a separate setting.
+  tower. H100 training uses microbatch 32 and accumulation 1 for experiment 1;
+  the longer chat-formatted experiments 2/3 use microbatch 16 and accumulation
+  2. All three retain effective batch 32, loss-evaluation batch 32, and disabled
+  gradient checkpointing. Inference batch is 64 and is a separate setting.
   These replace the initial memory-conservative A100 settings (microbatch 1,
   accumulation 32, eval batch 1, Unsloth gradient checkpointing). Test GPU memory
   fit before production; Qwen need not fit the same batch as Llama. Adjust with
@@ -165,13 +204,14 @@ enabled. Only resubmit after the previous job has stopped. Manifests and a
 per-adapter job lock reject incompatible inputs/settings and concurrent writers.
 `--train-only` and `--eval-only` are available if stages must be split later.
 
-### Restarting the old microbatch-1 runs with H100 settings
+### Restarting runs after a microbatch change
 
-The new defaults are training microbatch 32, accumulation 1, loss-evaluation
-batch 32, gradient checkpointing disabled, and inference batch 64. These change
-the recorded run configuration. Do not delete or edit manifests to bypass the
-guard. The procedure below intentionally restarts **all 18 main runs**, including
-any completed 100/500 training, preserving the old files in a recoverable archive.
+The defaults are training microbatch 32/accumulation 1 for experiment 1 and
+microbatch 16/accumulation 2 for experiments 2/3, with loss-evaluation batch 32,
+gradient checkpointing disabled, and inference batch 64. These settings retain
+effective batch 32. Microbatch changes alter the recorded run configuration. Do
+not delete or edit manifests to bypass the guard. The procedure below describes
+a complete restart while preserving old files in a recoverable archive.
 No dependencies, Llama results, watermarked texts, prompts, control runs, or smoke
 runs are changed. Open-keyspace results under the selected main-run directories
 are archived with their corresponding adapters.

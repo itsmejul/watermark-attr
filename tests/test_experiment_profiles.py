@@ -38,8 +38,12 @@ class ProfileTests(unittest.TestCase):
                 self.assertIn("t_ws_qwen3_5_9b", resolved["subset"]["texts_path"])
                 self.assertEqual(resolved["train"]["epochs"], 100)
                 self.assertEqual(resolved["train"]["batch_size"], 32)
-                self.assertEqual(resolved["train"]["micro_batch_size"], 32)
-                self.assertEqual(resolved["train"]["batch_size"] // resolved["train"]["micro_batch_size"], 1)
+                expected_micro_batch = 32 if sample_type == "abstracts_only" else 16
+                self.assertEqual(resolved["train"]["micro_batch_size"], expected_micro_batch)
+                self.assertEqual(
+                    resolved["train"]["batch_size"] // resolved["train"]["micro_batch_size"],
+                    1 if sample_type == "abstracts_only" else 2,
+                )
                 self.assertEqual(resolved["train"]["eval_batch_size"], 32)
                 self.assertEqual(resolved["train"]["inference_batch_size"], 64)
                 self.assertIs(resolved["train"]["use_gradient_checkpointing"], False)
@@ -149,6 +153,19 @@ class CheckpointTests(unittest.TestCase):
             incomplete.mkdir()
             (incomplete / "trainer_state.json").write_text('{"global_step": 20}')
             self.assertEqual(latest_complete_checkpoint(tmp), str(old))
+
+    def test_full_model_resume_ignores_incomplete_saves(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            complete = Path(tmp) / "checkpoint-10"
+            complete.mkdir()
+            for name in ("optimizer.pt", "scheduler.pt", "rng_state.pth", "config.json",
+                         "model.safetensors.index.json"):
+                (complete / name).write_text("test")
+            (complete / "trainer_state.json").write_text('{"global_step": 10}')
+            incomplete = Path(tmp) / "checkpoint-20"
+            incomplete.mkdir()
+            (incomplete / "trainer_state.json").write_text('{"global_step": 20}')
+            self.assertEqual(latest_complete_checkpoint(tmp, full_model=True), str(complete))
 
 
 if __name__ == "__main__":

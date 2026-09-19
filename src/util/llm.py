@@ -3,12 +3,14 @@ from unsloth import FastLanguageModel
 import torch
 import time
 from tqdm import tqdm
-from src.util.filereader import write_path_file, write_path_file_atomic, load_or_create_path_file, get_lora_adapter_path
+from src.util.filereader import REPO_ROOT, write_path_file, write_path_file_atomic, load_or_create_path_file, get_lora_adapter_path
 from src.util.qwen_compat import restore_qwen_text_architecture
 
 UNSLOTH_MAX_SEQ_LENGTH = 2048
 
-def ask_batched(prompts, config, experiment_path, lora_adapter_path = None, save_file_name = "answers.json", add_special_tokens=True, latency_key = "ask"):
+def ask_batched(prompts, config, experiment_path, lora_adapter_path=None,
+                save_file_name="answers.json", add_special_tokens=True,
+                latency_key="ask", full_model_path=None):
     start_time = time.time()
     max_response_tokens = config["max_response_tokens"]
     temperature = config["temperature"]
@@ -16,12 +18,17 @@ def ask_batched(prompts, config, experiment_path, lora_adapter_path = None, save
     top_p = config["top_p"]
     batch_size = config.get("inference_batch_size", 128)
 
-    if lora_adapter_path is None:
-        lora_adapter_path = experiment_path
-    lora_path = get_lora_adapter_path(lora_adapter_path)
+    if full_model_path is not None and lora_adapter_path is not None:
+        raise ValueError("Specify either lora_adapter_path or full_model_path, not both")
+    if full_model_path is not None:
+        load_path = REPO_ROOT.joinpath(*full_model_path)
+    else:
+        if lora_adapter_path is None:
+            lora_adapter_path = experiment_path
+        load_path = get_lora_adapter_path(lora_adapter_path)
 
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=str(lora_path),
+        model_name=str(load_path),
         max_seq_length=UNSLOTH_MAX_SEQ_LENGTH,
         dtype=torch.bfloat16,
         load_in_4bit=False,

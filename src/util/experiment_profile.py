@@ -73,7 +73,11 @@ class ExperimentProfile:
         config = json.loads(path.read_text())
         if self.name == "qwen":
             overrides = json.loads((REPO_ROOT / "data/experiment_config_qwen.json").read_text())
+            micro_batch_overrides = overrides.pop("micro_batch_size_overrides", {})
             config.update(overrides)
+            config["micro_batch_size"] = micro_batch_overrides.get(
+                sample_type, config["micro_batch_size"]
+            )
         return config
 
     def check_waterfall(self):

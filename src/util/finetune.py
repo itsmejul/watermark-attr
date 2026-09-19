@@ -9,6 +9,7 @@ import time
 import inspect
 from pathlib import Path
 from src.util.checkpoints import latest_complete_checkpoint
+from src.util.causal_lm_data import PreserveEosDataCollator, tokenize_with_terminal_eos
 from src.util.qwen_compat import restore_qwen_text_architecture
 from src.util.filereader import write_path_file, load_or_create_path_file, get_lora_adapter_path
 
@@ -78,6 +79,13 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
             raise RuntimeError("Qwen text-only loading unexpectedly retained a vision tower; refusing ambiguous LoRA targets")
 
     def tokenize_function(samples):
+        if config.get("profile") == "qwen":
+            return tokenize_with_terminal_eos(
+                tokenizer,
+                samples["text"],
+                max_length=max_length,
+                add_special_tokens=add_special_tokens,
+            )
         tokens = tokenizer(
             samples["text"],
             truncation=True,
@@ -122,7 +130,9 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
             "trainable_count": sum(p.numel() for p in model.parameters() if p.requires_grad),
             "trainable_names": [name for name, p in model.named_parameters() if p.requires_grad],
         })
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    data_collator = (PreserveEosDataCollator(tokenizer)
+                     if config.get("profile") == "qwen"
+                     else DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False))
 
     adapter_save_dir = get_lora_adapter_path(experiment_path)
     os.makedirs(adapter_save_dir, exist_ok=True)

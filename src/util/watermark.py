@@ -94,6 +94,7 @@ def verify_watermarks_full(
         use_tqdm=True,
         candidate_k_ps=None,               # closed-set restriction
         score_percentiles=(50, 90, 99, 99.9),
+        legacy_fourier=False,
     ):
     """
     Watermark verification.
@@ -195,7 +196,7 @@ def verify_watermarks_full(
         row_sum[row_sum == 0] = 1.0
         dense /= row_sum
 
-        q = fourier_scores(dense, wf)
+        q = fourier_scores(dense, wf, legacy=legacy_fourier)
 
         q_search = q[:, valid_cols] if valid_cols is not None else q
 
@@ -270,6 +271,7 @@ def verify_watermarks_open_keyspace(
         batch_size=256,
         use_tqdm=True,
         score_percentiles=(50, 90, 99, 99.9),
+        legacy_fourier=False,
     ):
     """
     Open-keyspace verification.
@@ -333,7 +335,7 @@ def verify_watermarks_open_keyspace(
         row_sum[row_sum == 0] = 1.0
         dense /= row_sum
 
-        q = fourier_scores(dense, wf)
+        q = fourier_scores(dense, wf, legacy=legacy_fourier)
         q_search = q[:, valid_cols]
 
         part        = np.argpartition(q_search, -top_k, axis=-1)[:, -top_k:]

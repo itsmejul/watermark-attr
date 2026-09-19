@@ -57,7 +57,7 @@ also creates it. Existing jobs/logs are not moved; GPU utilization logs stay in 
 - Same keys, seed-48 training subsets, held-out rows 63800–63999, seed-1234
   evaluation subsets (at most 1000), and open negatives at rows 64000–64999.
 - Training truncation: 300 tokens for experiment 1; 512 for experiments 2/3.
-- Greedy answer generation (`do_sample=false`, temperature 0, max 512 new tokens).
+- Greedy answer generation (`do_sample=false`, temperature 0, max 300 new tokens).
   **Watermark generation** separately uses sampling/temperature 0.5/kappa 6/ngram 2.
 - Titles, perturbed titles, and questions are reused. Questions were generated
   from **original unwatermarked abstracts**, not Llama paraphrases.
@@ -81,11 +81,19 @@ also creates it. Existing jobs/logs are not moved; GPU utilization logs stay in 
   `--micro-batch-size` / `--inference-batch-size` as needed. Existing jobs do not
   pick up config edits, and existing run manifests reject changed settings;
   these defaults are not an automatic migration of already-started runs.
-- The exact old target list `q_proj,k_proj,v_proj,o_proj` is retained. Qwen's
-  linear-attention blocks use other names, so this targets its full-attention
-  blocks only. It is **not equivalent layer coverage** to Llama. The run records
-  trainable names/counts in `trainable_parameters.json`; broadening the list
-  would be a separate experimental change.
+- Qwen LoRA covers both full-attention projections (`q_proj`, `k_proj`, `v_proj`,
+  `o_proj`) and Gated DeltaNet projections (`in_proj_qkv`, `in_proj_z`,
+  `in_proj_a`, `in_proj_b`, `out_proj`). The run records exact trainable names
+  and counts in `trainable_parameters.json`.
+- Qwen training examples receive an explicit terminal EOS. The data collator
+  masks positions using the attention mask, so genuine EOS labels remain
+  supervised even though Qwen uses its EOS token as padding. This, together
+  with the 300-token generation cap, directly addresses the old 512-token
+  runaway tails.
+- The EOS, generation-length, and LoRA-target changes produce a new run
+  configuration. Existing Qwen adapter/result directories should be archived
+  before starting fresh runs; do not use `--resume` across this change. Run
+  manifests deliberately reject mixing the old and new settings.
 - Published Unsloth **2026.9.5** requires Transformers **<=5.5.0**. Training uses
   **5.5.0**, Waterfall **0.3.4**, Torch **2.9.1**, and a resolved dependency lock.
   Watermarking remains on Transformers **5.17.0** in `.venv-qwen`. Do not install
@@ -320,6 +328,39 @@ sbatch scripts/launch_capella_qwen.sh src.experiments.main.perturbed_titles_simi
 The last command writes `results/perturbed_titles_similarity-qwen/`; recomputing
 it is optional because the title texts did not change. Ablation experiments
 remain legacy-only; this migration targets the three main experiments/controls.
+
+## Qwen trained on the Llama-watermarked corpus
+
+`qwen_on_llama_pipeline.py` is the cross-model control. It trains the Qwen
+model with the same Qwen LoRA configuration but reads the existing
+`data/t_ws/combined_t_ws.json` targets and Llama-tokenized prefix prompts. It
+also verifies generated text with the Llama tokenizer and the historical
+Waterfall 0.2.13 Fourier convention, while still running inside the Qwen
+training environment.
+
+Its outputs cannot collide with either main arm:
+
+- adapters: `lora_adapters/qwen_on_llama/{sample_type}/{size}/{batch}/`
+- results: `results/experimentN-qwen-on-llama/{prompt_type}/{size}/{batch}/{epoch}/`
+
+Run a small diagnostic first:
+
+```bash
+python -m src.experiments.main.qwen_on_llama_pipeline \
+  100 abstracts_only 32 100 --preflight
+
+sbatch --job-name=qwen-llamawm-exp1-100 \
+  scripts/launch_capella_qwen.sh src.experiments.main.qwen_on_llama_pipeline \
+  100 abstracts_only 32 100
+```
+
+The module accepts the same `--smoke`, `--train-only`, `--eval-only`,
+`--resume`, microbatch, and inference-batch options as the Qwen main arm. To
+submit the complete 18-run matrix after the diagnostic succeeds:
+
+```bash
+bash scripts/submit_qwen_on_llama_experiments.sh capella
+```
 
 ## Notebooks and checks
 

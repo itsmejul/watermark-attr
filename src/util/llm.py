@@ -56,7 +56,8 @@ def ask_batched(prompts, config, experiment_path, lora_adapter_path=None,
                 temperature=temperature,
                 top_p=top_p,
                 pad_token_id=tokenizer.eos_token_id,
-                **({"top_k": config.get("top_k", 50), "num_beams": 1}
+                **({"eos_token_id": tokenizer.eos_token_id,
+                    "top_k": config.get("top_k", 50), "num_beams": 1}
                    if config.get("profile") == "qwen" else {}),
             )
         for output in outputs:

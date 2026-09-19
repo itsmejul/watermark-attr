@@ -35,8 +35,11 @@ class PipelineTests(unittest.TestCase):
             return json.loads(self.root.joinpath(*parts, filename).read_text())
 
         def subset(n, **kwargs):
-            self.assertIn("t_ws_qwen3_5_9b", kwargs["texts_path"])
-            self.assertIn("prompts_qwen3_5_9b", kwargs["prompts_path"])
+            if "t_ws_qwen3_5_9b" in kwargs["texts_path"]:
+                self.assertIn("prompts_qwen3_5_9b", kwargs["prompts_path"])
+            else:
+                self.assertEqual(kwargs["texts_path"], "data/t_ws/combined_t_ws.json")
+                self.assertEqual(kwargs["prompts_path"], "data/prompts/prefix_10.json")
             return self.subset(n)
 
         def train(texts, heldout, config, path, **kwargs):
@@ -91,9 +94,11 @@ class PipelineTests(unittest.TestCase):
             result[field] = [f"{field} {i}" for i in range(n)]
         return result
 
-    def run_pipeline(self, mode="watermarked", sample_type="abstracts_only", extra=()):
+    def run_pipeline(self, mode="watermarked", sample_type="abstracts_only", extra=(),
+                     watermark_source="qwen"):
         with contextlib.redirect_stdout(io.StringIO()):
-            pipeline.main(mode, ["10", sample_type, "32", "5", "--smoke", *extra])
+            pipeline.main(mode, ["10", sample_type, "32", "5", "--smoke", *extra],
+                          watermark_source=watermark_source)
 
     def test_train_resume_and_open_roundtrip_all_experiments(self):
         for sample_type, prompts in PROMPT_TYPES.items():
@@ -131,6 +136,16 @@ class PipelineTests(unittest.TestCase):
         (self.root / "data/t_ws_qwen3_5_9b/combined_manifest.json").unlink()
         with self.assertRaises(ValueError):
             self.run_pipeline(extra=["--preflight"])
+
+    def test_qwen_on_llama_run_uses_separate_paths_and_legacy_detector(self):
+        self.run_pipeline(watermark_source="llama")
+        path, adapter, _ = self.calls["ask"][0]
+        self.assertEqual(path[1], "experiment1-qwen-on-llama-smoke")
+        self.assertEqual(adapter[:3], ["lora_adapters", "qwen_on_llama", "smoke"])
+        self.assertTrue(self.calls["verify"][0][2]["legacy_fourier"])
+        manifest = json.loads((self.root / "lora_adapters/qwen_on_llama/smoke/abstracts_only/10/32/run_manifest.json").read_text())
+        self.assertEqual(manifest["profile"], "qwen_on_llama")
+        self.assertEqual(manifest["detector_model"], "meta-llama/Llama-3.1-8B-Instruct")
 
 
 if __name__ == "__main__":

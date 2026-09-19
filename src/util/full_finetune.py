@@ -9,9 +9,10 @@ import time
 
 import torch
 from datasets import Dataset
-from transformers import DataCollatorForLanguageModeling, Trainer, TrainerCallback, TrainingArguments
+from transformers import Trainer, TrainerCallback, TrainingArguments
 
 from src.util.checkpoints import latest_complete_checkpoint
+from src.util.causal_lm_data import PreserveEosDataCollator, tokenize_with_terminal_eos
 from src.util.filereader import REPO_ROOT, load_or_create_path_file, write_path_file
 from src.util.qwen_compat import restore_qwen_text_architecture
 
@@ -89,10 +90,12 @@ def full_finetune(texts, eval_texts, config, experiment_path,
     print(f"Full fine-tuning {trainable_count:,} / {total_count:,} parameters")
 
     def tokenize_function(samples):
-        tokens = tokenizer(samples["text"], truncation=True, max_length=max_length,
-                           add_special_tokens=add_special_tokens)
-        tokens["length"] = [len(ids) for ids in tokens["input_ids"]]
-        return tokens
+        return tokenize_with_terminal_eos(
+            tokenizer,
+            samples["text"],
+            max_length=max_length,
+            add_special_tokens=add_special_tokens,
+        )
 
     train_dataset = Dataset.from_dict({"text": texts}).map(tokenize_function, batched=True)
     eval_dataset = None
@@ -143,7 +146,7 @@ def full_finetune(texts, eval_texts, config, experiment_path,
         train_dataset=train_dataset,
         eval_dataset={"heldout": eval_dataset, "train": train_eval_dataset}
         if eval_dataset is not None else {"train": train_eval_dataset},
-        data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
+        data_collator=PreserveEosDataCollator(tokenizer),
         args=training_args,
         callbacks=[callback],
     )

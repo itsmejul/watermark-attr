@@ -14,6 +14,7 @@ from src.util.experiment_profile import ExperimentProfile, QWEN_SIZES, SAMPLE_TY
 from src.util.fourier_scores import fourier_scores
 from src.util.checkpoints import latest_complete_checkpoint
 from src.experiments.main import qwen_pipeline as pipeline
+from src.experiments.main import qwen_on_llama_pipeline
 
 
 class ProfileTests(unittest.TestCase):
@@ -50,11 +51,26 @@ class ProfileTests(unittest.TestCase):
                 self.assertEqual(resolved["train"]["n_samples"], n)
                 self.assertFalse(resolved["generation"]["do_sample"])
                 self.assertEqual(resolved["generation"]["temperature"], 0)
-                self.assertEqual(resolved["generation"]["max_response_tokens"], 512)
+                self.assertEqual(resolved["generation"]["max_response_tokens"], 300)
                 self.assertFalse(resolved["train"]["chat_template_kwargs"]["enable_thinking"])
-                self.assertEqual(p.train_config(sample_type)["target_modules"],
-                                 ExperimentProfile().train_config(sample_type)["target_modules"])
+                self.assertEqual(p.train_config(sample_type)["target_modules"], [
+                    "q_proj", "k_proj", "v_proj", "o_proj", "in_proj_qkv",
+                    "in_proj_z", "in_proj_a", "in_proj_b", "out_proj",
+                ])
         self.assertEqual(len(roots), 18)
+
+    def test_qwen_on_llama_arm_uses_cross_model_inputs_and_isolated_outputs(self):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            qwen_on_llama_pipeline.main(["1000", "questions", "32", "100", "--dry-run"])
+        resolved = json.loads(output.getvalue())
+        self.assertEqual(resolved["mode"], "qwen_on_llama_watermarked")
+        self.assertEqual(resolved["adapters"], "lora_adapters/qwen_on_llama/questions/1000/32")
+        self.assertEqual(resolved["results"], "results/experiment3-qwen-on-llama")
+        self.assertEqual(resolved["subset"]["texts_path"], "data/t_ws/combined_t_ws.json")
+        self.assertEqual(resolved["subset"]["prompts_path"], "data/prompts/prefix_10.json")
+        self.assertEqual(resolved["detector_model"], "meta-llama/Llama-3.1-8B-Instruct")
+        self.assertEqual(resolved["train"]["train_model"], "Qwen/Qwen3.5-9B")
 
     def test_shared_prompts_and_tokenizer_specific_prefixes(self):
         p = ExperimentProfile("qwen")
@@ -138,6 +154,13 @@ class FourierTests(unittest.TestCase):
             angles = 2 * np.pi * np.arange(n)[None, :] * np.arange(1, max_freq + 1)[:, None] / n
             expected = dense @ np.concatenate((np.cos(angles), np.sin(angles))).T
             np.testing.assert_allclose(fourier_scores(dense, wf), expected, atol=1e-6)
+
+    def test_modern_waterfall_object_can_use_legacy_llama_fourier_convention(self):
+        dense = np.random.default_rng(4).random((3, 8), dtype=np.float32)
+        wf = SimpleNamespace(N=8, scaling_factor=1, num_fns=6)
+        f = rfft(dense, axis=-1)[:, 1:-1].astype(np.complex64)
+        expected = np.concatenate((f.real, f.imag), axis=1)
+        np.testing.assert_array_equal(fourier_scores(dense, wf, legacy=True), expected)
 
 
 class CheckpointTests(unittest.TestCase):

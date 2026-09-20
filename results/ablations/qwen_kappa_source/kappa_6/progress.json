@@ -12,11 +12,11 @@
   "keys_file": "data/keys.json",
   "generation_seed": 20260920,
   "output_dir": "results/ablations/qwen_kappa_source/kappa_6",
-  "completed_count": 40,
+  "completed_count": 100,
   "expected_count": 100,
-  "complete": false,
+  "complete": true,
   "started_at_count": 0,
-  "generated_this_run": 40,
-  "elapsed_seconds_this_run": 259.6489224433899,
-  "seconds_per_new_text": 6.491223061084748
+  "generated_this_run": 100,
+  "elapsed_seconds_this_run": 615.0005712509155,
+  "seconds_per_new_text": 6.150005712509155
 }

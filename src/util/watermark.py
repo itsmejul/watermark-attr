@@ -653,6 +653,7 @@ def watermark(
         watermarkingFnClass,
     )
     chat_template_kwargs = config.get("chat_template_kwargs", {})
+    generation_seed = config.get("generation_seed")
 
     remaining = zip(
         T_os[resume_index:run_end_index],
@@ -667,6 +668,10 @@ def watermark(
         ),
         start=resume_index,
     ):
+        if generation_seed is not None:
+            # A per-text seed makes resumed runs reproducible and permits
+            # paired generation ablations where only one setting changes.
+            transformers.set_seed(int(generation_seed) + local_index)
         watermark_id = int(watermark_id)
         k_p = int(k_p)
         watermarker.k_p = k_p

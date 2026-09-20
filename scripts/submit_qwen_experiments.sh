@@ -5,7 +5,8 @@ if [[ $# -lt 1 ]]; then
     echo "Usage: bash $0 <capella|horeka-green> [pipeline arguments, e.g. --resume]" >&2
     exit 64
 fi
-case "$1" in
+cluster="$1"
+case "$cluster" in
     capella) launcher="scripts/launch_capella_qwen.sh" ;;
     horeka-green) launcher="scripts/launch_horeka_green.sh" ;;
     *) echo "Unknown cluster: $1" >&2; exit 64 ;;
@@ -25,6 +26,27 @@ fi
 export QWEN_VENV_DIR="${QWEN_VENV_DIR:-${PWD}/.venv-qwen-experiments}"
 if [[ ! -x "${QWEN_VENV_DIR}/bin/python" ]]; then
     echo "Missing training environment: ${QWEN_VENV_DIR}" >&2
+    exit 1
+fi
+# Capella's Python module supplies libpython3.12.so to venv executables. The
+# Slurm launcher loads it inside jobs; load it here too when the login-shell
+# preflight cannot start without it.
+if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
+    if [[ "$cluster" == "capella" ]]; then
+        if ! type module >/dev/null 2>&1; then
+            # shellcheck disable=SC1091
+            source /etc/profile
+        fi
+        if ! type module >/dev/null 2>&1; then
+            echo "Capella's module command is unavailable; run this helper from a login shell." >&2
+            exit 1
+        fi
+        module purge
+        module load release/24.04 GCCcore/13.3.0 Python/3.12.3
+    fi
+fi
+if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
+    echo "The training-environment Python cannot start: ${QWEN_VENV_DIR}/bin/python" >&2
     exit 1
 fi
 # Slurm opens stdout/stderr before the job script itself starts.

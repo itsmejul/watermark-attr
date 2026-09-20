@@ -95,10 +95,11 @@ class PipelineTests(unittest.TestCase):
         return result
 
     def run_pipeline(self, mode="watermarked", sample_type="abstracts_only", extra=(),
-                     watermark_source="qwen"):
+                     watermark_source="qwen", batch_size="32", experiment_variant=None):
         with contextlib.redirect_stdout(io.StringIO()):
-            pipeline.main(mode, ["10", sample_type, "32", "5", "--smoke", *extra],
-                          watermark_source=watermark_source)
+            pipeline.main(mode, ["10", sample_type, batch_size, "5", "--smoke", *extra],
+                          watermark_source=watermark_source,
+                          experiment_variant=experiment_variant)
 
     def test_train_resume_and_open_roundtrip_all_experiments(self):
         for sample_type, prompts in PROMPT_TYPES.items():
@@ -146,6 +147,20 @@ class PipelineTests(unittest.TestCase):
         manifest = json.loads((self.root / "lora_adapters/qwen_on_llama/smoke/abstracts_only/10/32/run_manifest.json").read_text())
         self.assertEqual(manifest["profile"], "qwen_on_llama")
         self.assertEqual(manifest["detector_model"], "meta-llama/Llama-3.1-8B-Instruct")
+
+    def test_batch64_variant_uses_its_own_roots(self):
+        self.run_pipeline(watermark_source="llama", batch_size="64",
+                          experiment_variant="batch64")
+        path, adapter, _ = self.calls["ask"][0]
+        self.assertEqual(path[1], "experiment1-qwen-on-llama-batch64-smoke")
+        self.assertEqual(adapter[:3], ["lora_adapters", "qwen_on_llama_batch64", "smoke"])
+        self.assertEqual(adapter[-2:], ["64", "1"])
+        manifest_path = (self.root / "lora_adapters/qwen_on_llama_batch64/smoke/"
+                         "abstracts_only/10/64/run_manifest.json")
+        manifest = json.loads(manifest_path.read_text())
+        self.assertEqual(manifest["profile"], "qwen_on_llama_batch64")
+        self.assertEqual(manifest["config"]["batch_size"], 64)
+        self.assertEqual(manifest["config"]["micro_batch_size"], 32)
 
 
 if __name__ == "__main__":

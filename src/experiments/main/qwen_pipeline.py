@@ -119,12 +119,18 @@ def parse_args(mode, argv=None):
     return args
 
 
-def main(mode="watermarked", argv=None, watermark_source="qwen"):
+def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_variant=None):
     args = parse_args(mode, argv)
     profile = ExperimentProfile("qwen")
     if watermark_source not in ("qwen", "llama"):
         raise ValueError(f"Unknown watermark source: {watermark_source}")
     cross_model = watermark_source == "llama"
+    if experiment_variant not in (None, "batch64"):
+        raise ValueError(f"Unknown experiment variant: {experiment_variant}")
+    if experiment_variant is not None and not cross_model:
+        raise ValueError("Qwen experiment variants currently require the Llama-watermarked control arm.")
+    if experiment_variant == "batch64" and args.batch_size != 64:
+        raise ValueError("The batch64 arm requires an effective batch size of exactly 64.")
     if cross_model and (mode != "watermarked" or args.unwatermarked):
         raise ValueError("The Qwen-on-Llama pipeline only supports Llama-watermarked training data.")
     source_profile = ExperimentProfile(watermark_source)
@@ -141,10 +147,12 @@ def main(mode="watermarked", argv=None, watermark_source="qwen"):
         raise ValueError("Positive micro batch must divide the effective batch; inference batch must be positive.")
     if args.smoke:
         config.update(epochs=1, save_every_n_epochs=1)
-    adapter = ((["lora_adapters", "qwen_on_llama", args.sample_type]
+    cross_model_name = "qwen_on_llama" + (f"_{experiment_variant}" if experiment_variant else "")
+    adapter = ((["lora_adapters", cross_model_name, args.sample_type]
                 if cross_model else profile.adapter_root(args.sample_type, unwm))
                + [str(args.n_samples), str(args.batch_size)])
     result_dir = (f"experiment{SAMPLE_TYPES.index(args.sample_type) + 1}-qwen-on-llama"
+                  + (f"-{experiment_variant}" if experiment_variant else "")
                   if cross_model else profile.experiment_dir(args.sample_type))
     if args.smoke:
         adapter.insert(2, "smoke")
@@ -154,7 +162,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen"):
     generation = load_path_file(["data"], "generation_config.json") | config | source_profile.watermark_config
     generation["batch_size"] = args.batch_size  # watermark batch_size is corpus sharding, not training
     subset_kwargs = source_profile.subset_kwargs(unwm)
-    resolved_mode = "qwen_on_llama_watermarked" if cross_model else mode
+    resolved_mode = f"{cross_model_name}_watermarked" if cross_model else mode
     print(json.dumps(dict(mode=resolved_mode, adapters="/".join(adapter), results=f"results/{result_dir}",
                           subset=subset_kwargs, detector_model=source_profile.model, train=config,
                           generation={k: generation[k] for k in ("do_sample", "temperature", "top_p", "max_response_tokens")}), indent=2))
@@ -210,7 +218,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen"):
     fingerprints = {p: sha256(REPO_ROOT / p) for p in sorted(set(required))}
     training_fingerprints = {p: v for p, v in fingerprints.items() if not p.endswith("_open.json")}
     versions = {p: version(p) for p in ("unsloth", "unsloth-zoo", "transformers", "waterfall", "torch", "peft")}
-    manifest = dict(profile="qwen_on_llama" if cross_model else "qwen",
+    manifest = dict(profile=cross_model_name if cross_model else "qwen",
                     watermark_source=watermark_source, detector_model=source_profile.model,
                     legacy_fourier=cross_model, config=config, n_samples=args.n_samples, unwatermarked=unwm,
                     inputs=training_fingerprints, versions=versions, subset_seed=48)

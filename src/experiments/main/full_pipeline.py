@@ -3,11 +3,13 @@ abstracts, then generate answers and verify watermarks at every saved epoch.
 
 Usage:
     python -m src.experiments.main.full_pipeline \
-        [n_samples] [sample_type] [batch_size] [n_eval_samples] [--eval-only]
+        [n_samples] [sample_type] [batch_size] [n_eval_samples] [--eval-only] [--eos-fix]
 
 sample_type is one of abstracts_only, abstracts_and_titles, questions.
 --eval-only skips training and runs generation + verification on the
 adapters already saved under lora_adapters/.
+--eos-fix opts into terminal-EOS supervision and bounded EOS-aware generation,
+and writes to isolated llamaeosfix adapter/result directories.
 """
 
 from src.util.experiment_profile import dispatch_profile
@@ -40,15 +42,24 @@ parser.add_argument("batch_size", nargs="?", default="32")
 parser.add_argument("n_eval_samples", nargs="?", default="1000")
 parser.add_argument("--eval-only", action="store_true",
                     help="skip training, only run generation + verification")
+parser.add_argument(
+    "--eos-fix",
+    action="store_true",
+    help="use EOS-preserving training/generation and isolated llamaeosfix paths",
+)
 args = parser.parse_args()
 sample_type = args.sample_type
 n_eval_samples = int(args.n_eval_samples)
 batch_size = int(args.batch_size)
 experiment_dir = {"abstracts_only": "experiment1", "abstracts_and_titles": "experiment2",
                   "questions": "experiment3"}[sample_type]
+if args.eos_fix:
+    experiment_dir += "-llamaeosfix"
 
 config = load_path_file(["lora_adapters", sample_type], "train_config.json")
 config["batch_size"] = batch_size
+if args.eos_fix:
+    config.update(preserve_eos=True, record_trainable_parameters=True)
 if args.n_samples == "":
     n_samples = config["n_samples"]
 else:
@@ -56,7 +67,10 @@ else:
 if n_samples == -1:
     n_samples = 63800
 
-adapter_save_path = ["lora_adapters", sample_type, str(n_samples), str(batch_size)]
+adapter_save_path = ["lora_adapters"]
+if args.eos_fix:
+    adapter_save_path.append("llamaeosfix")
+adapter_save_path.extend([sample_type, str(n_samples), str(batch_size)])
 
 model_name = config["train_model"]
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -123,6 +137,12 @@ generation_config = load_path_file(["data"], "generation_config.json")
 train_config = load_path_file(["lora_adapters", sample_type], "train_config.json")
 watermark_config = load_path_file(["data"], "watermark_config.json")
 config = generation_config | train_config | watermark_config
+if args.eos_fix:
+    config.update(
+        preserve_eos=True,
+        eos_fixed_generation=True,
+        max_response_tokens=300,
+    )
 
 subset = load_subset(n=int(n_samples), prompts_path="data/prompts/prefix_10.json")
 ids = subset["ids"]
@@ -168,8 +188,7 @@ def ask_and_verify(prompt_type, sub_experiment_name):
 
     responses_path = ["results", experiment_dir, prompt_type, str(n_samples), str(batch_size), sub_experiment_name]
     ask_batched(eval_prompts, config, experiment_path=responses_path,
-                lora_adapter_path=["lora_adapters", sample_type, str(n_samples),
-                                   str(batch_size), sub_experiment_name],
+                lora_adapter_path=adapter_save_path + [sub_experiment_name],
                 add_special_tokens=add_special)
 
     gc.collect()

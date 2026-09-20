@@ -47,9 +47,10 @@ def tokenize_with_terminal_eos(tokenizer, texts, max_length, add_special_tokens=
 class PreserveEosDataCollator:
     """Pad causal-LM batches while masking padding positions, not EOS IDs.
 
-    Qwen uses the same token ID for padding and EOS. Hugging Face's standard
-    language-modeling collator masks by token ID and therefore also masks real
-    end-of-sequence labels. The attention mask distinguishes the two cases.
+    These pipelines use the same token ID for padding and EOS. Hugging Face's
+    standard language-modeling collator masks by token ID and therefore also
+    masks real end-of-sequence labels. The attention mask distinguishes the
+    two cases.
     """
 
     def __init__(self, tokenizer):

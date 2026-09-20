@@ -6,6 +6,7 @@ keys, and per-text random seeds so that kappa is the only changed parameter.
 
 Examples:
     python -m src.experiments.ablations.qwen_kappa_ablation 6
+    python -m src.experiments.ablations.qwen_kappa_ablation 6 --temperature 1.0
     python -m src.experiments.ablations.qwen_kappa_ablation 10 --dry-run
     python -m src.experiments.ablations.qwen_kappa_ablation --aggregate
 """
@@ -24,6 +25,7 @@ KAPPAS = (6, 10, 14)
 N_SAMPLES = 100
 GENERATION_SEED = 20260920
 OUTPUT_ROOT = Path("results/ablations/qwen_kappa_source")
+TEMPERATURE_OUTPUT_ROOT = Path("results/ablations/qwen_temperature_source")
 BASE_CONFIG_PATH = Path("data/watermark_config_qwen3_5_9b.json")
 KEYS_PATH = Path("data/keys.json")
 
@@ -33,11 +35,17 @@ def _load_json(path: Path):
         return json.load(handle)
 
 
-def _output_path(kappa: int) -> Path:
+def _temperature_slug(temperature: float) -> str:
+    return f"{temperature:g}".replace("-", "minus_").replace(".", "p")
+
+
+def _output_path(kappa: int, temperature: float | None = None) -> Path:
+    if temperature is not None:
+        return TEMPERATURE_OUTPUT_ROOT / f"temperature_{_temperature_slug(temperature)}"
     return OUTPUT_ROOT / f"kappa_{kappa}"
 
 
-def _condition_config(kappa: int) -> dict:
+def _condition_config(kappa: int, temperature: float | None = None) -> dict:
     config = dict(_load_json(BASE_CONFIG_PATH))
     config.update(
         n_samples=N_SAMPLES,
@@ -46,6 +54,10 @@ def _condition_config(kappa: int) -> dict:
         generation_seed=GENERATION_SEED,
         checkpoint_every=10,
     )
+    if temperature is not None:
+        if temperature <= 0:
+            raise ValueError("temperature must be positive")
+        config["temperature_watermark"] = float(temperature)
     return config
 
 
@@ -109,17 +121,26 @@ def summarize_verification(verification: dict) -> dict:
     }
 
 
-def run_condition(kappa: int, dry_run: bool = False) -> dict | None:
+def run_condition(
+    kappa: int,
+    dry_run: bool = False,
+    temperature: float | None = None,
+) -> dict | None:
     if kappa not in KAPPAS:
         raise ValueError(f"kappa must be one of {KAPPAS}; got {kappa}")
 
-    output_path = _output_path(kappa)
-    config = _condition_config(kappa)
+    output_path = _output_path(kappa, temperature)
+    config = _condition_config(kappa, temperature)
     texts, ids, k_ps = _condition_data()
     manifest = {
-        "experiment": "qwen_kappa_source",
+        "experiment": (
+            "qwen_temperature_source"
+            if temperature is not None
+            else "qwen_kappa_source"
+        ),
         "purpose": "direct watermark detection without fine-tuning",
         "kappa": float(kappa),
+        "temperature": config["temperature_watermark"],
         "n_samples": N_SAMPLES,
         "candidate_count": N_SAMPLES,
         "source_indices": [0, N_SAMPLES - 1],
@@ -169,7 +190,11 @@ def run_condition(kappa: int, dry_run: bool = False) -> dict | None:
         candidate_k_ps=k_ps,
     )
     verification = _load_json(output_path / "verification_closed.json")
-    summary = {"kappa": float(kappa), **summarize_verification(verification)}
+    summary = {
+        "kappa": float(kappa),
+        "temperature": config["temperature_watermark"],
+        **summarize_verification(verification),
+    }
     write_path_file_atomic(list(output_path.parts), "summary.json", summary)
     print(json.dumps(summary, indent=2))
     return summary
@@ -196,6 +221,15 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("kappa", nargs="?", type=int, choices=KAPPAS)
     parser.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help=(
+            "override temperature_watermark and write to the isolated "
+            "qwen_temperature_source result tree"
+        ),
+    )
+    parser.add_argument(
         "--aggregate",
         action="store_true",
         help="combine the three completed per-kappa summaries",
@@ -207,12 +241,18 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
     if args.aggregate:
-        if args.kappa is not None or args.dry_run:
-            parser.error("--aggregate cannot be combined with kappa or --dry-run")
+        if args.kappa is not None or args.dry_run or args.temperature is not None:
+            parser.error(
+                "--aggregate cannot be combined with kappa, --temperature, or --dry-run"
+            )
         return aggregate()
     if args.kappa is None:
         parser.error("kappa is required unless --aggregate is used")
-    return run_condition(args.kappa, dry_run=args.dry_run)
+    return run_condition(
+        args.kappa,
+        dry_run=args.dry_run,
+        temperature=args.temperature,
+    )
 
 
 if __name__ == "__main__":

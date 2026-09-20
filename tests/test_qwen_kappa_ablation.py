@@ -42,6 +42,23 @@ class QwenKappaAblationTests(unittest.TestCase):
         self.assertEqual(config["generation_seed"], ablation.GENERATION_SEED)
         self.assertEqual(base["kappa"], 6.0)
 
+    def test_temperature_override_is_isolated(self):
+        base = {
+            "watermark_model": "Qwen/Qwen3.5-9B",
+            "kappa": 6.0,
+            "temperature_watermark": 0.5,
+            "n_samples": 64000,
+            "batch_size": 5000,
+        }
+        with patch.object(ablation, "_load_json", return_value=base):
+            config = ablation._condition_config(6, temperature=1.0)
+        self.assertEqual(config["temperature_watermark"], 1.0)
+        self.assertEqual(base["temperature_watermark"], 0.5)
+        self.assertEqual(
+            ablation._output_path(6, temperature=1.0),
+            Path("results/ablations/qwen_temperature_source/temperature_1"),
+        )
+
     def test_write_or_validate_rejects_changed_condition(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

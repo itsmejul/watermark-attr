@@ -59,6 +59,12 @@ class CausalLmDataTests(unittest.TestCase):
         ])
         self.assertEqual(batch["labels"].tolist(), [[1, 99, -100], [2, 3, 99]])
 
+    def test_existing_terminal_eos_is_not_duplicated(self):
+        tokenizer = FakeTokenizer()
+        encoded = tokenize_with_terminal_eos(tokenizer, [[1, 99]], max_length=3)
+        self.assertEqual(encoded["input_ids"], [[1, 99]])
+        self.assertEqual(encoded["attention_mask"], [[1, 1]])
+
 
 if __name__ == "__main__":
     unittest.main()

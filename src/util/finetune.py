@@ -64,6 +64,7 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
 
     start_time = time.time()
     model_name = config["train_model"]
+    preserve_eos = config.get("preserve_eos", config.get("profile") == "qwen")
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=model_name,
         max_seq_length=UNSLOTH_MAX_SEQ_LENGTH,
@@ -79,7 +80,7 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
             raise RuntimeError("Qwen text-only loading unexpectedly retained a vision tower; refusing ambiguous LoRA targets")
 
     def tokenize_function(samples):
-        if config.get("profile") == "qwen":
+        if preserve_eos:
             return tokenize_with_terminal_eos(
                 tokenizer,
                 samples["text"],
@@ -122,7 +123,7 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
         random_state=42,
     )
     model.print_trainable_parameters()
-    if config.get("profile") == "qwen":
+    if config.get("profile") == "qwen" or config.get("record_trainable_parameters"):
         write_path_file(experiment_path, "trainable_parameters.json", {
             "model_class": type(model).__name__,
             "model_commit": getattr(model.config, "_commit_hash", None),
@@ -131,7 +132,7 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
             "trainable_names": [name for name, p in model.named_parameters() if p.requires_grad],
         })
     data_collator = (PreserveEosDataCollator(tokenizer)
-                     if config.get("profile") == "qwen"
+                     if preserve_eos
                      else DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False))
 
     adapter_save_dir = get_lora_adapter_path(experiment_path)

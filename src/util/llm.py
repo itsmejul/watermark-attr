@@ -17,6 +17,9 @@ def ask_batched(prompts, config, experiment_path, lora_adapter_path=None,
     do_sample = config["do_sample"]
     top_p = config["top_p"]
     batch_size = config.get("inference_batch_size", 128)
+    eos_fixed_generation = config.get(
+        "eos_fixed_generation", config.get("profile") == "qwen"
+    )
 
     if full_model_path is not None and lora_adapter_path is not None:
         raise ValueError("Specify either lora_adapter_path or full_model_path, not both")
@@ -46,7 +49,7 @@ def ask_batched(prompts, config, experiment_path, lora_adapter_path=None,
         batch = prompts[i:i+batch_size]
         inputs = tokenizer(batch, return_tensors="pt", padding=True, truncation=True, add_special_tokens=add_special_tokens,
                            **({"max_length": UNSLOTH_MAX_SEQ_LENGTH - max_response_tokens}
-                              if config.get("profile") == "qwen" else {})).to(model.device)
+                              if eos_fixed_generation else {})).to(model.device)
         input_length = inputs["input_ids"].shape[1]
         with torch.no_grad():
             outputs = model.generate(
@@ -58,7 +61,7 @@ def ask_batched(prompts, config, experiment_path, lora_adapter_path=None,
                 pad_token_id=tokenizer.eos_token_id,
                 **({"eos_token_id": tokenizer.eos_token_id,
                     "top_k": config.get("top_k", 50), "num_beams": 1}
-                   if config.get("profile") == "qwen" else {}),
+                   if eos_fixed_generation else {}),
             )
         for output in outputs:
             response = tokenizer.decode(output[input_length:], skip_special_tokens=True)

@@ -39,6 +39,36 @@ class SubmissionTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(len(log.read_text().splitlines()), 18)
 
+    def test_batch64_helper_submits_isolated_matrix_with_fixed_microbatches(self):
+        repo = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "data/t_ws").mkdir(parents=True)
+            (root / "data/experiment_config_qwen.json").write_text("{}")
+            (root / "data/t_ws/combined_t_ws.json").write_text("[]")
+            submit_script = str(repo / "scripts/submit_qwen_on_llama_batch64_experiments.sh")
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            python = bin_dir / "python"
+            python.write_text('#!/bin/bash\nexit 0\n')
+            python.chmod(0o755)
+            sbatch = bin_dir / "sbatch"
+            sbatch.write_text('#!/bin/bash\nprintf "%s\\n" "$*" >> "$SUBMISSION_TEST_LOG"\n')
+            sbatch.chmod(0o755)
+            log = root / "jobs.txt"
+            env = {**os.environ, "QWEN_VENV_DIR": str(root), "SUBMISSION_TEST_LOG": str(log),
+                   "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"]}
+            subprocess.run(["bash", submit_script, "capella", "--resume"],
+                           cwd=root, env=env, check=True, capture_output=True, text=True)
+            jobs = log.read_text().splitlines()
+            self.assertEqual(len(jobs), 18)
+            for experiment in ("abstracts_only", "abstracts_and_titles", "questions"):
+                micro = 32 if experiment == "abstracts_only" else 16
+                for n in (100, 500, 1000, 5000, 10000, 50000):
+                    expected = (f"qwen_on_llama_batch64_pipeline {n} {experiment} 64 1000 "
+                                f"--micro-batch-size {micro} --resume")
+                    self.assertEqual(sum(expected in line for line in jobs), 1)
+
     def test_all_launchers_use_job_outputs(self):
         repo = Path(__file__).resolve().parents[1]
         self.assertTrue((repo / "job_outputs/.gitkeep").is_file())

@@ -15,6 +15,7 @@ from src.util.fourier_scores import fourier_scores
 from src.util.checkpoints import latest_complete_checkpoint
 from src.experiments.main import qwen_pipeline as pipeline
 from src.experiments.main import qwen_on_llama_pipeline
+from src.experiments.main import qwen_on_llama_batch64_pipeline
 
 
 class ProfileTests(unittest.TestCase):
@@ -71,6 +72,36 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(resolved["subset"]["prompts_path"], "data/prompts/prefix_10.json")
         self.assertEqual(resolved["detector_model"], "meta-llama/Llama-3.1-8B-Instruct")
         self.assertEqual(resolved["train"]["train_model"], "Qwen/Qwen3.5-9B")
+
+    def test_qwen_on_llama_batch64_arm_doubles_accumulation_and_isolates_outputs(self):
+        for sample_type, expected_micro, expected_accumulation in (
+                ("abstracts_only", 32, 2),
+                ("abstracts_and_titles", 16, 4),
+                ("questions", 16, 4)):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                qwen_on_llama_batch64_pipeline.main(
+                    ["1000", sample_type, "64", "100", "--dry-run"]
+                )
+            resolved = json.loads(output.getvalue())
+            self.assertEqual(resolved["mode"], "qwen_on_llama_batch64_watermarked")
+            self.assertEqual(
+                resolved["adapters"],
+                f"lora_adapters/qwen_on_llama_batch64/{sample_type}/1000/64",
+            )
+            experiment = SAMPLE_TYPES.index(sample_type) + 1
+            self.assertEqual(
+                resolved["results"],
+                f"results/experiment{experiment}-qwen-on-llama-batch64",
+            )
+            self.assertEqual(resolved["train"]["batch_size"], 64)
+            self.assertEqual(resolved["train"]["micro_batch_size"], expected_micro)
+            self.assertEqual(64 // expected_micro, expected_accumulation)
+
+        with self.assertRaises(ValueError):
+            qwen_on_llama_batch64_pipeline.main(
+                ["1000", "abstracts_only", "32", "100", "--dry-run"]
+            )
 
     def test_shared_prompts_and_tokenizer_specific_prefixes(self):
         p = ExperimentProfile("qwen")

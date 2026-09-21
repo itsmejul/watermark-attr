@@ -7,7 +7,7 @@ import unittest
 
 
 class SubmissionTests(unittest.TestCase):
-    def test_qwen_on_llama_additional_eval_helper_submits_21_jobs(self):
+    def test_qwen_on_llama_additional_eval_helper_submits_four_jobs(self):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -29,11 +29,12 @@ class SubmissionTests(unittest.TestCase):
             subprocess.run(["bash", submit_script, "capella"], cwd=root, env=env,
                            check=True, capture_output=True, text=True)
             jobs = log.read_text().splitlines()
-            self.assertEqual(len(jobs), 21)
-            self.assertEqual(sum("qwen_on_llama_open_pipeline" in line for line in jobs), 18)
+            self.assertEqual(len(jobs), 4)
+            self.assertEqual(sum("qwen_on_llama_open_pipeline" in line for line in jobs), 1)
+            self.assertIn("qwen_on_llama_open_pipeline 1000 abstracts_only 32 1000 --resume", jobs[0])
             self.assertEqual(sum("similarity_eval --profile qwen_on_llama" in line for line in jobs), 3)
-            self.assertTrue(all("--resume" in line for line in jobs[:18]))
-            self.assertTrue(all("--skip-existing" in line for line in jobs[18:]))
+            self.assertIn("--resume", jobs[0])
+            self.assertTrue(all("--skip-existing" in line for line in jobs[1:]))
 
     def test_submits_exactly_one_job_per_experiment_and_size(self):
         repo = Path(__file__).resolve().parents[1]

@@ -206,6 +206,9 @@ class ProfileTests(unittest.TestCase):
             self.assertIn("lora_adapters/qwen_on_llama/", source)
             self.assertIn("figures/results/qwen_on_llama/", source)
             self.assertNotIn(f"experiment{experiment}-qwen\"", source)
+            if experiment == 1:
+                self.assertIn("OPEN_SAMPLE_SIZE = 1000", source)
+                self.assertIn("exp1_open_keyspace_n1000.pdf", source)
             for cell in nb["cells"]:
                 if cell["cell_type"] == "code":
                     self.assertEqual(cell["outputs"], [])

@@ -41,22 +41,16 @@ fi
 
 mkdir -p job_outputs
 
-# Validate the shared corpus/open prompts before creating any Slurm jobs.
-for sample_type in abstracts_only abstracts_and_titles questions; do
-    for n in 100 500 1000 5000 10000 50000; do
-        "${QWEN_VENV_DIR}/bin/python" -m src.experiments.main.qwen_on_llama_open_pipeline \
-            "$n" "$sample_type" 32 1000 --preflight >/dev/null
-    done
-done
+# Validate the 1,000-sample Experiment 1 open-keyspace ablation before
+# creating any Slurm jobs.
+"${QWEN_VENV_DIR}/bin/python" -m src.experiments.main.qwen_on_llama_open_pipeline \
+    1000 abstracts_only 32 1000 --preflight >/dev/null
 
-# One open-keyspace job per trained configuration. --resume makes re-submission safe.
-for sample_type in abstracts_only abstracts_and_titles questions; do
-    for n in 100 500 1000 5000 10000 50000; do
-        sbatch --job-name="qol-open-${sample_type}-${n}" "$launcher" \
-            src.experiments.main.qwen_on_llama_open_pipeline \
-            "$n" "$sample_type" 32 1000 --resume
-    done
-done
+# The open-keyspace ablation is intentionally only Experiment 1 at N=1,000.
+# It evaluates all 20 saved checkpoints; --resume makes re-submission safe.
+sbatch --job-name="qol-open-abstracts_only-1000" "$launcher" \
+    src.experiments.main.qwen_on_llama_open_pipeline \
+    1000 abstracts_only 32 1000 --resume
 
 # One auxiliary-metric sweep per experiment. It evaluates the best and final
 # epochs and skips files already produced by an earlier/restarted job.

@@ -33,6 +33,44 @@ def convert(notebook, experiment):
         if cell["cell_type"] == "code":
             cell["execution_count"] = None
             cell["outputs"] = []
+    if experiment == 1:
+        # The open-keyspace study is a fixed-N ablation, not a corpus-size
+        # sweep. Keep the main SAMPLE_SIZES grid intact for every later plot.
+        for cell in notebook["cells"]:
+            source = "".join(cell.get("source", []))
+            if "OPEN_RESULTS_ROOT" in source and "EPOCHS" in source:
+                source = source.replace(
+                    "SAMPLE_SIZES = [100, 500, 1000, 5000, 10000, 50000]",
+                    "OPEN_SAMPLE_SIZE = 1000",
+                )
+            elif "best_epoch_open = {}" in source:
+                source = source.replace("for sz in SAMPLE_SIZES:",
+                                        "for sz in [OPEN_SAMPLE_SIZE]:")
+            elif "metrics = {sz: compute_metrics(sz) for sz in SAMPLE_SIZES}" in source:
+                source = source.replace(
+                    "metrics = {sz: compute_metrics(sz) for sz in SAMPLE_SIZES}",
+                    "metrics = {OPEN_SAMPLE_SIZE: compute_metrics(OPEN_SAMPLE_SIZE)}",
+                ).replace("for sz in SAMPLE_SIZES:", "for sz in [OPEN_SAMPLE_SIZE]:")
+            elif "aurocs    = [metrics[sz]" in source:
+                source = '''m = metrics.get(OPEN_SAMPLE_SIZE)
+if m is not None:
+    labels = ["AUROC", "TPR@FPR=0.05", "TPR@FPR=0.01"]
+    values = [m["auroc"], m["tpr@0.05"], m["tpr@0.01"]]
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    ax.bar(labels, values, color=["red", "#377eb8", "#377eb8"])
+    ax.set_ylabel("metric", fontsize=FONT_SIZE)
+    ax.set_ylim(-0.02, 1.02)
+    ax.tick_params(axis="both", labelsize=FONT_SIZE)
+    ax.grid(alpha=0.25, axis="y")
+    ax.set_title(f"Open-keyspace evaluation (N={OPEN_SAMPLE_SIZE:,}, epoch={m['epoch']})",
+                 fontsize=FONT_SIZE)
+    plt.tight_layout()
+    plt.savefig(FIG_DIR / "exp1_open_keyspace_n1000.pdf", format="pdf")
+    plt.show()
+else:
+    print(f"No open-keyspace result found for N={OPEN_SAMPLE_SIZE:,}.")
+'''
+            cell["source"] = source.splitlines(keepends=True)
     notebook["cells"].insert(0, {
         "cell_type": "markdown",
         "metadata": {},

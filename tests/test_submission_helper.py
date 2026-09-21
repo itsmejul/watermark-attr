@@ -24,7 +24,7 @@ class SubmissionTests(unittest.TestCase):
             sbatch.write_text('#!/bin/bash\nprintf "%s\\n" "$*" >> "$SUBMISSION_TEST_LOG"\n')
             sbatch.chmod(0o755)
             log = root / "jobs.txt"
-            env = {**os.environ, "LLAMA_VENV_DIR": str(root),
+            env = {**os.environ, "QWEN_VENV_DIR": str(root),
                    "SUBMISSION_TEST_LOG": str(log),
                    "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"]}
             subprocess.run(["bash", submit_script, "capella"], cwd=root, env=env,
@@ -36,7 +36,7 @@ class SubmissionTests(unittest.TestCase):
                     expected = ("full_pipeline_llama_eosfix "
                                 f"{n} {sample_type} 32 1000")
                     self.assertEqual(sum(expected in line for line in jobs), 1)
-            self.assertTrue(all("launch_capella_llama.sh" in line for line in jobs))
+            self.assertTrue(all("launch_capella_qwen.sh" in line for line in jobs))
 
     def test_qwen_on_llama_additional_eval_helper_submits_four_jobs(self):
         repo = Path(__file__).resolve().parents[1]

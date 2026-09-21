@@ -197,7 +197,7 @@ def ask_and_verify(prompt_type, sub_experiment_name):
     answers = load_path_file(responses_path, "answers.json")
     wm_tokenizer, wm_model, watermarker = init_watermarker(config)
     verify_watermarks_full(answers, ids[0], eval_k_ps, watermarker, responses_path,
-                           candidate_k_ps=k_ps)
+                           candidate_k_ps=k_ps, legacy_fourier=args.eos_fix)
 
     del wm_tokenizer, wm_model, watermarker
     gc.collect()

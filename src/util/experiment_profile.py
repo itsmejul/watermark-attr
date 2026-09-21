@@ -81,8 +81,8 @@ class ExperimentProfile:
             )
         return config
 
-    def check_waterfall(self):
-        expected = "0.3.4" if self.is_qwen_trained else "0.2.13"
+    def check_waterfall(self, modern_llama=False):
+        expected = "0.3.4" if self.is_qwen_trained or modern_llama else "0.2.13"
         actual = version("waterfall")
         if actual != expected:
             raise RuntimeError(f"{self.name} requires waterfall=={expected}; found {actual}. Use its separate environment.")
@@ -109,5 +109,8 @@ def dispatch_profile(mode):
         raise SystemExit(0)
     # Never silently re-score old corpora under the new Fourier convention.
     if not any(x in remaining for x in ("--help", "-h")):
-        ExperimentProfile("llama").check_waterfall()
+        # The isolated EOS-fix arm runs on the maintained stack, but still
+        # explicitly uses the legacy Fourier convention when scoring the
+        # historical Llama-watermarked corpus.
+        ExperimentProfile("llama").check_waterfall(modern_llama="--eos-fix" in remaining)
     sys.argv[1:] = remaining

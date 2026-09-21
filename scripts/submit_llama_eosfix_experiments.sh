@@ -12,14 +12,14 @@ if [[ ! -f data/watermark_config.json || ! -f data/t_ws/combined_t_ws.json ]]; t
     exit 1
 fi
 
-export LLAMA_VENV_DIR="${LLAMA_VENV_DIR:-${PWD}/.venv}"
-if [[ ! -x "${LLAMA_VENV_DIR}/bin/python" ]]; then
-    echo "Missing Llama environment: ${LLAMA_VENV_DIR}" >&2
+export QWEN_VENV_DIR="${QWEN_VENV_DIR:-${PWD}/.venv-qwen-experiments}"
+if [[ ! -x "${QWEN_VENV_DIR}/bin/python" ]]; then
+    echo "Missing maintained experiment environment: ${QWEN_VENV_DIR}" >&2
     exit 1
 fi
 
 # Capella's Python module supplies libpython3.12.so to venv executables.
-if ! "${LLAMA_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
+if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
     if ! type module >/dev/null 2>&1; then
         # shellcheck disable=SC1091
         source /etc/profile
@@ -32,10 +32,10 @@ if ! "${LLAMA_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
     module load release/24.04 GCCcore/13.3.0 Python/3.12.3
 fi
 
-if ! "${LLAMA_VENV_DIR}/bin/python" -c \
-    'from importlib.metadata import version; assert version("waterfall") == "0.2.13"' \
+if ! "${QWEN_VENV_DIR}/bin/python" -c \
+    'from importlib.metadata import version; assert version("waterfall") == "0.3.4"; assert version("transformers") == "5.5.0"' \
     >/dev/null 2>&1; then
-    echo "The Llama environment must start successfully and contain waterfall==0.2.13." >&2
+    echo "The experiment environment must contain waterfall==0.3.4 and transformers==5.5.0." >&2
     exit 1
 fi
 
@@ -43,7 +43,7 @@ mkdir -p job_outputs
 for sample_type in abstracts_only abstracts_and_titles questions; do
     for n in 100 500 1000 5000 10000 50000; do
         sbatch --job-name="llama-eos-${sample_type}-${n}" \
-            scripts/launch_capella_llama.sh \
+            scripts/launch_capella_qwen.sh \
             src.experiments.main.full_pipeline_llama_eosfix \
             "$n" "$sample_type" 32 1000
     done

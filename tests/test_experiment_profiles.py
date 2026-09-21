@@ -27,6 +27,13 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(p.adapter_root("questions"), ["lora_adapters", "questions"])
         self.assertEqual(p.experiment_dir("questions"), "experiment3")
 
+    def test_modern_llama_eosfix_accepts_new_waterfall_without_changing_legacy_default(self):
+        p = ExperimentProfile("llama")
+        with patch("src.util.experiment_profile.version", return_value="0.3.4"):
+            p.check_waterfall(modern_llama=True)
+            with self.assertRaises(RuntimeError):
+                p.check_waterfall()
+
     def test_all_18_qwen_configs_are_isolated(self):
         p = ExperimentProfile("qwen")
         roots = set()

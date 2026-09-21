@@ -131,7 +131,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
         raise ValueError("Qwen experiment variants currently require the Llama-watermarked control arm.")
     if experiment_variant == "batch64" and args.batch_size != 64:
         raise ValueError("The batch64 arm requires an effective batch size of exactly 64.")
-    if cross_model and (mode != "watermarked" or args.unwatermarked):
+    if cross_model and (mode not in ("watermarked", "open") or args.unwatermarked):
         raise ValueError("The Qwen-on-Llama pipeline only supports Llama-watermarked training data.")
     source_profile = ExperimentProfile(watermark_source)
     unwm = mode == "unwatermarked" or args.unwatermarked
@@ -162,7 +162,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     generation = load_path_file(["data"], "generation_config.json") | config | source_profile.watermark_config
     generation["batch_size"] = args.batch_size  # watermark batch_size is corpus sharding, not training
     subset_kwargs = source_profile.subset_kwargs(unwm)
-    resolved_mode = f"{cross_model_name}_watermarked" if cross_model else mode
+    resolved_mode = f"{cross_model_name}_{mode}" if cross_model else mode
     print(json.dumps(dict(mode=resolved_mode, adapters="/".join(adapter), results=f"results/{result_dir}",
                           subset=subset_kwargs, detector_model=source_profile.model, train=config,
                           generation={k: generation[k] for k in ("do_sample", "temperature", "top_p", "max_response_tokens")}), indent=2))

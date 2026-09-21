@@ -106,7 +106,7 @@ def configure_profile(name):
     TOKENIZER_NAME = ACTIVE_PROFILE.model
     BIGRAMS_NPZ = REPO_ROOT / ACTIVE_PROFILE.corpus_dir / "bigrams.npz"
     EXPERIMENT_DIR = {s: ACTIVE_PROFILE.experiment_dir(s) for s in SAMPLE_TYPES}
-    SAMPLE_SIZES = QWEN_SIZES if name == "qwen" else (100, 500, 1000, 5000, 10000, 63800)
+    SAMPLE_SIZES = QWEN_SIZES if ACTIVE_PROFILE.is_qwen_trained else (100, 500, 1000, 5000, 10000, 63800)
     UNWM_EXPERIMENT_DIR = EXPERIMENT_DIR["abstracts_only"]
     UNWM_PROMPTS_PATH = ACTIVE_PROFILE.prompt_path("prefix_10_unwatermarked.json")
 
@@ -330,10 +330,12 @@ class TargetBigrams:
 
     def __init__(self, path=None):
         path = BIGRAMS_NPZ if path is None else Path(path)
-        if ACTIVE_PROFILE.name == "qwen":
+        if ACTIVE_PROFILE.is_qwen_trained:
             meta = json.loads(path.with_name("bigrams_meta.json").read_text())
             if meta["tokenizer"] != TOKENIZER_NAME or meta["n_samples"] != 64000:
-                raise ValueError("Bigram cache does not match the Qwen tokenizer/corpus")
+                raise ValueError(
+                    f"Bigram cache does not match the {ACTIVE_PROFILE.name} tokenizer/corpus"
+                )
         if not path.is_file():
             raise FileNotFoundError(
                 f"{path} not found — run compute_t_w_bigrams.py first."
@@ -634,7 +636,7 @@ def run_config(n_samples, sample_type, batch_size, metrics, res,
     if sample_type not in SUB_EXPERIMENTS:
         raise ValueError(f"unknown sample_type={sample_type}")
     if n_samples == -1:
-        n_samples = 50000 if ACTIVE_PROFILE.name == "qwen" else 63800
+        n_samples = 50000 if ACTIVE_PROFILE.is_qwen_trained else 63800
     experiment_dir = EXPERIMENT_DIR[sample_type]
 
     config = ACTIVE_PROFILE.train_config(sample_type)
@@ -702,7 +704,7 @@ def run_config(n_samples, sample_type, batch_size, metrics, res,
                 continue
             true_idx = np.asarray(eval_indices, dtype=np.int64)
             correct_k_ps = [k_ps[i] for i in eval_indices]
-            if ACTIVE_PROFILE.name == "qwen":
+            if ACTIVE_PROFILE.is_qwen_trained:
                 manifest = json.loads((ep_dir / "eval_manifest.json").read_text())
                 if manifest["eval_indices"] != eval_indices:
                     raise ValueError(f"Evaluation subset does not match {ep_dir / 'eval_manifest.json'}")
@@ -721,8 +723,11 @@ def run_config(n_samples, sample_type, batch_size, metrics, res,
                     targets = [pair_targets[i] for i in eval_indices]
                     _run_pairwise(metric, res, ep_path, ep_dir, answers, targets,
                                   correct_k_ps, target_type, summary_only, skip_existing)
-    if ACTIVE_PROFILE.name == "qwen" and evaluated_epochs == 0:
-        raise FileNotFoundError(f"No Qwen answers found for {sample_type}, n={n_samples}, batch={batch_size}")
+    if ACTIVE_PROFILE.is_qwen_trained and evaluated_epochs == 0:
+        raise FileNotFoundError(
+            f"No {ACTIVE_PROFILE.name} answers found for {sample_type}, "
+            f"n={n_samples}, batch={batch_size}"
+        )
 
 
 def run_unwatermarked(n_samples=1000, batch_size=32):
@@ -809,8 +814,11 @@ def main():
     if args.sweep:
         sample_types = tuple(args.sample_types) if args.sample_types else SAMPLE_TYPES
         configs = list(discover_configs(sample_types=sample_types, unwatermarked=args.unwatermarked))
-        if args.profile == "qwen" and not configs:
-            raise SystemExit("No completed Qwen configurations found. Generate answers before similarity evaluation.")
+        if ACTIVE_PROFILE.is_qwen_trained and not configs:
+            raise SystemExit(
+                f"No completed {args.profile} configurations found. "
+                "Generate answers before similarity evaluation."
+            )
         print(f"Found {len(configs)} configs to run (metrics={metrics}):")
         for c in configs:
             print(f"  - {c}")
@@ -833,7 +841,7 @@ def main():
         h, m = divmod(int(dt), 3600)
         m, s = divmod(m, 60)
         print(f"\nAll {len(configs)} configs done in {h:d}:{m:02d}:{s:02d}.")
-        if args.profile == "qwen" and failed:
+        if ACTIVE_PROFILE.is_qwen_trained and failed:
             raise SystemExit(f"Similarity evaluation failed for {failed}; see preceding errors.")
     else:
         if args.n_samples == "":

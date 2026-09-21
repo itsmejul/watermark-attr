@@ -1,8 +1,4 @@
-"""Explicit experiment routing. Importable without any ML dependencies.
-
-Llama paths/configs remain the defaults. Qwen never falls back to Llama
-corpora, prefixes, adapters, or result directories.
-"""
+"""Explicit experiment routing. Importable without any ML dependencies."""
 from dataclasses import dataclass
 from importlib.metadata import version
 import json
@@ -24,12 +20,16 @@ class ExperimentProfile:
     name: str = "llama"
 
     def __post_init__(self):
-        if self.name not in ("llama", "qwen"):
+        if self.name not in ("llama", "qwen", "qwen_on_llama"):
             raise ValueError(f"Unknown profile: {self.name}")
 
     @property
+    def is_qwen_trained(self):
+        return self.name in ("qwen", "qwen_on_llama")
+
+    @property
     def suffix(self):
-        return "-qwen" if self.name == "qwen" else ""
+        return {"llama": "", "qwen": "-qwen", "qwen_on_llama": "-qwen-on-llama"}[self.name]
 
     @property
     def corpus_dir(self):
@@ -66,12 +66,13 @@ class ExperimentProfile:
 
     def adapter_root(self, sample_type, unwatermarked=False):
         name = sample_type + ("_unwatermarked" if unwatermarked else "")
-        return ["lora_adapters", *(["qwen"] if self.name == "qwen" else []), name]
+        namespace = {"llama": [], "qwen": ["qwen"], "qwen_on_llama": ["qwen_on_llama"]}[self.name]
+        return ["lora_adapters", *namespace, name]
 
     def train_config(self, sample_type):
         path = REPO_ROOT / "lora_adapters" / sample_type / "train_config.json"
         config = json.loads(path.read_text())
-        if self.name == "qwen":
+        if self.is_qwen_trained:
             overrides = json.loads((REPO_ROOT / "data/experiment_config_qwen.json").read_text())
             micro_batch_overrides = overrides.pop("micro_batch_size_overrides", {})
             config.update(overrides)
@@ -81,14 +82,14 @@ class ExperimentProfile:
         return config
 
     def check_waterfall(self):
-        expected = "0.3.4" if self.name == "qwen" else "0.2.13"
+        expected = "0.3.4" if self.is_qwen_trained else "0.2.13"
         actual = version("waterfall")
         if actual != expected:
             raise RuntimeError(f"{self.name} requires waterfall=={expected}; found {actual}. Use its separate environment.")
 
 
 def add_profile_argument(parser):
-    parser.add_argument("--profile", choices=("llama", "qwen"), default="llama")
+    parser.add_argument("--profile", choices=("llama", "qwen", "qwen_on_llama"), default="llama")
 
 
 def dispatch_profile(mode):
@@ -102,9 +103,9 @@ def dispatch_profile(mode):
     parser = argparse.ArgumentParser(add_help=False)
     add_profile_argument(parser)
     args, remaining = parser.parse_known_args()
-    if args.profile == "qwen":
+    if args.profile in ("qwen", "qwen_on_llama"):
         from src.experiments.main.qwen_pipeline import main
-        main(mode, remaining)
+        main(mode, remaining, watermark_source="llama" if args.profile == "qwen_on_llama" else "qwen")
         raise SystemExit(0)
     # Never silently re-score old corpora under the new Fourier convention.
     if not any(x in remaining for x in ("--help", "-h")):

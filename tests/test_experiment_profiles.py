@@ -15,6 +15,7 @@ from src.util.fourier_scores import fourier_scores
 from src.util.checkpoints import latest_complete_checkpoint
 from src.experiments.main import qwen_pipeline as pipeline
 from src.experiments.main import qwen_on_llama_pipeline
+from src.experiments.main import qwen_on_llama_open_pipeline
 from src.experiments.main import qwen_on_llama_batch64_pipeline
 
 
@@ -72,6 +73,26 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(resolved["subset"]["prompts_path"], "data/prompts/prefix_10.json")
         self.assertEqual(resolved["detector_model"], "meta-llama/Llama-3.1-8B-Instruct")
         self.assertEqual(resolved["train"]["train_model"], "Qwen/Qwen3.5-9B")
+
+        p = ExperimentProfile("qwen_on_llama")
+        self.assertTrue(p.is_qwen_trained)
+        self.assertEqual(p.experiment_dir("questions"), "experiment3-qwen-on-llama")
+        self.assertEqual(p.adapter_root("questions"), ["lora_adapters", "qwen_on_llama", "questions"])
+        self.assertEqual(p.corpus_dir, "data/t_ws")
+        self.assertEqual(p.prompts_dir, "data/prompts")
+        self.assertEqual(p.model, "meta-llama/Llama-3.1-8B-Instruct")
+        self.assertEqual(p.train_config("questions")["train_model"], "Qwen/Qwen3.5-9B")
+
+    def test_qwen_on_llama_open_arm_uses_existing_cross_model_namespace(self):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            qwen_on_llama_open_pipeline.main(
+                ["1000", "abstracts_only", "32", "1000", "--dry-run"]
+            )
+        resolved = json.loads(output.getvalue())
+        self.assertEqual(resolved["mode"], "qwen_on_llama_open")
+        self.assertEqual(resolved["adapters"], "lora_adapters/qwen_on_llama/abstracts_only/1000/32")
+        self.assertEqual(resolved["results"], "results/experiment1-qwen-on-llama")
 
     def test_qwen_on_llama_batch64_arm_doubles_accumulation_and_isolates_outputs(self):
         for sample_type, expected_micro, expected_accumulation in (
@@ -149,6 +170,11 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"], "experiment1-qwen")
             self.assertIn("t_ws_qwen3_5_9b", str(sim.BIGRAMS_NPZ))
             self.assertEqual(sim.TOKENIZER_NAME, "Qwen/Qwen3.5-9B")
+            sim.configure_profile("qwen_on_llama")
+            self.assertEqual(sim.SAMPLE_SIZES, QWEN_SIZES)
+            self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"], "experiment1-qwen-on-llama")
+            self.assertEqual(str(sim.BIGRAMS_NPZ), str(Path(__file__).resolve().parents[1] / "data/t_ws/bigrams.npz"))
+            self.assertEqual(sim.TOKENIZER_NAME, "meta-llama/Llama-3.1-8B-Instruct")
         finally:
             sim.configure_profile("llama")
         self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"], "experiment1")
@@ -163,6 +189,23 @@ class ProfileTests(unittest.TestCase):
             self.assertNotIn("63800", source)
             self.assertNotIn('Path("../../results/experiment1")', source)
             self.assertIn("/qwen/", source)
+            for cell in nb["cells"]:
+                if cell["cell_type"] == "code":
+                    self.assertEqual(cell["outputs"], [])
+                    self.assertIsNone(cell["execution_count"])
+                    compile("".join(cell["source"]), str(path), "exec")
+
+    def test_qwen_on_llama_notebooks_cover_all_experiments_and_are_isolated(self):
+        root = Path(__file__).resolve().parents[1]
+        notebooks = sorted((root / "src/eval").glob("experiment*_eval_qwen_on_llama.ipynb"))
+        self.assertEqual(len(notebooks), 3)
+        for experiment, path in enumerate(notebooks, 1):
+            nb = json.loads(path.read_text())
+            source = "".join("".join(c["source"]) for c in nb["cells"])
+            self.assertIn(f"experiment{experiment}-qwen-on-llama", source)
+            self.assertIn("lora_adapters/qwen_on_llama/", source)
+            self.assertIn("figures/results/qwen_on_llama/", source)
+            self.assertNotIn(f"experiment{experiment}-qwen\"", source)
             for cell in nb["cells"]:
                 if cell["cell_type"] == "code":
                     self.assertEqual(cell["outputs"], [])

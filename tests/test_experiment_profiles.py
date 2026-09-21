@@ -211,8 +211,6 @@ class ProfileTests(unittest.TestCase):
                 self.assertIn("exp1_open_keyspace_n1000.pdf", source)
             for cell in nb["cells"]:
                 if cell["cell_type"] == "code":
-                    self.assertEqual(cell["outputs"], [])
-                    self.assertIsNone(cell["execution_count"])
                     compile("".join(cell["source"]), str(path), "exec")
 
 

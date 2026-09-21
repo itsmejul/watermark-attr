@@ -7,6 +7,37 @@ import unittest
 
 
 class SubmissionTests(unittest.TestCase):
+    def test_llama_eosfix_helper_submits_isolated_18_job_grid(self):
+        repo = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "data/t_ws").mkdir(parents=True)
+            (root / "data/watermark_config.json").write_text("{}")
+            (root / "data/t_ws/combined_t_ws.json").write_text("[]")
+            submit_script = str(repo / "scripts/submit_llama_eosfix_experiments.sh")
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            python = bin_dir / "python"
+            python.write_text('#!/bin/bash\nexit 0\n')
+            python.chmod(0o755)
+            sbatch = bin_dir / "sbatch"
+            sbatch.write_text('#!/bin/bash\nprintf "%s\\n" "$*" >> "$SUBMISSION_TEST_LOG"\n')
+            sbatch.chmod(0o755)
+            log = root / "jobs.txt"
+            env = {**os.environ, "LLAMA_VENV_DIR": str(root),
+                   "SUBMISSION_TEST_LOG": str(log),
+                   "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"]}
+            subprocess.run(["bash", submit_script, "capella"], cwd=root, env=env,
+                           check=True, capture_output=True, text=True)
+            jobs = log.read_text().splitlines()
+            self.assertEqual(len(jobs), 18)
+            for sample_type in ("abstracts_only", "abstracts_and_titles", "questions"):
+                for n in (100, 500, 1000, 5000, 10000, 50000):
+                    expected = ("full_pipeline_llama_eosfix "
+                                f"{n} {sample_type} 32 1000")
+                    self.assertEqual(sum(expected in line for line in jobs), 1)
+            self.assertTrue(all("launch_capella_llama.sh" in line for line in jobs))
+
     def test_qwen_on_llama_additional_eval_helper_submits_four_jobs(self):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:

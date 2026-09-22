@@ -7,6 +7,8 @@ keys, and per-text random seeds so that kappa is the only changed parameter.
 Examples:
     python -m src.experiments.ablations.qwen_kappa_ablation 6
     python -m src.experiments.ablations.qwen_kappa_ablation 6 --temperature 1.0
+    python -m src.experiments.ablations.qwen_kappa_ablation 6 --top-p 1.0
+    python -m src.experiments.ablations.qwen_kappa_ablation 6 --temperature 1.0 --top-p 1.0 --top-k 0
     python -m src.experiments.ablations.qwen_kappa_ablation 10 --dry-run
     python -m src.experiments.ablations.qwen_kappa_ablation --aggregate
 """
@@ -26,6 +28,8 @@ N_SAMPLES = 100
 GENERATION_SEED = 20260920
 OUTPUT_ROOT = Path("results/ablations/qwen_kappa_source")
 TEMPERATURE_OUTPUT_ROOT = Path("results/ablations/qwen_temperature_source")
+TOP_P_OUTPUT_ROOT = Path("results/ablations/qwen_top_p_source")
+SAMPLING_OUTPUT_ROOT = Path("results/ablations/qwen_sampling_source")
 BASE_CONFIG_PATH = Path("data/watermark_config_qwen3_5_9b.json")
 KEYS_PATH = Path("data/keys.json")
 
@@ -39,13 +43,35 @@ def _temperature_slug(temperature: float) -> str:
     return f"{temperature:g}".replace("-", "minus_").replace(".", "p")
 
 
-def _output_path(kappa: int, temperature: float | None = None) -> Path:
+def _output_path(
+    kappa: int,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    top_k: int | None = None,
+) -> Path:
+    overrides = sum(value is not None for value in (temperature, top_p, top_k))
+    if overrides > 1 or top_k is not None:
+        parts = [f"kappa_{kappa:g}"]
+        if temperature is not None:
+            parts.append(f"temperature_{_temperature_slug(temperature)}")
+        if top_p is not None:
+            parts.append(f"top_p_{_temperature_slug(top_p)}")
+        if top_k is not None:
+            parts.append(f"top_k_{top_k}")
+        return SAMPLING_OUTPUT_ROOT / "__".join(parts)
     if temperature is not None:
         return TEMPERATURE_OUTPUT_ROOT / f"temperature_{_temperature_slug(temperature)}"
+    if top_p is not None:
+        return TOP_P_OUTPUT_ROOT / f"top_p_{_temperature_slug(top_p)}"
     return OUTPUT_ROOT / f"kappa_{kappa}"
 
 
-def _condition_config(kappa: int, temperature: float | None = None) -> dict:
+def _condition_config(
+    kappa: int,
+    temperature: float | None = None,
+    top_p: float | None = None,
+    top_k: int | None = None,
+) -> dict:
     config = dict(_load_json(BASE_CONFIG_PATH))
     config.update(
         n_samples=N_SAMPLES,
@@ -58,6 +84,14 @@ def _condition_config(kappa: int, temperature: float | None = None) -> dict:
         if temperature <= 0:
             raise ValueError("temperature must be positive")
         config["temperature_watermark"] = float(temperature)
+    if top_p is not None:
+        if not 0 < top_p <= 1:
+            raise ValueError("top_p must be in (0, 1]")
+        config["top_p_watermark"] = float(top_p)
+    if top_k is not None:
+        if top_k < 0:
+            raise ValueError("top_k must be nonnegative")
+        config["top_k_watermark"] = int(top_k)
     return config
 
 
@@ -125,22 +159,31 @@ def run_condition(
     kappa: int,
     dry_run: bool = False,
     temperature: float | None = None,
+    top_p: float | None = None,
+    top_k: int | None = None,
 ) -> dict | None:
     if kappa not in KAPPAS:
         raise ValueError(f"kappa must be one of {KAPPAS}; got {kappa}")
 
-    output_path = _output_path(kappa, temperature)
-    config = _condition_config(kappa, temperature)
+    output_path = _output_path(kappa, temperature, top_p, top_k)
+    config = _condition_config(kappa, temperature, top_p, top_k)
     texts, ids, k_ps = _condition_data()
     manifest = {
         "experiment": (
-            "qwen_temperature_source"
+            "qwen_sampling_source"
+            if sum(value is not None for value in (temperature, top_p, top_k)) > 1
+            or top_k is not None
+            else "qwen_temperature_source"
             if temperature is not None
+            else "qwen_top_p_source"
+            if top_p is not None
             else "qwen_kappa_source"
         ),
         "purpose": "direct watermark detection without fine-tuning",
         "kappa": float(kappa),
         "temperature": config["temperature_watermark"],
+        "top_p": config["top_p_watermark"],
+        "top_k": config.get("top_k_watermark"),
         "n_samples": N_SAMPLES,
         "candidate_count": N_SAMPLES,
         "source_indices": [0, N_SAMPLES - 1],
@@ -193,6 +236,8 @@ def run_condition(
     summary = {
         "kappa": float(kappa),
         "temperature": config["temperature_watermark"],
+        "top_p": config["top_p_watermark"],
+        "top_k": config.get("top_k_watermark"),
         **summarize_verification(verification),
     }
     write_path_file_atomic(list(output_path.parts), "summary.json", summary)
@@ -230,6 +275,24 @@ def main(argv=None):
         ),
     )
     parser.add_argument(
+        "--top-p",
+        type=float,
+        default=None,
+        help=(
+            "override top_p_watermark and write to the isolated "
+            "qwen_top_p_source result tree; use 1.0 for no nucleus truncation"
+        ),
+    )
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=None,
+        help=(
+            "override top_k_watermark; use 0 to disable top-k truncation. "
+            "Sampling combinations use the isolated qwen_sampling_source tree"
+        ),
+    )
+    parser.add_argument(
         "--aggregate",
         action="store_true",
         help="combine the three completed per-kappa summaries",
@@ -241,9 +304,16 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
     if args.aggregate:
-        if args.kappa is not None or args.dry_run or args.temperature is not None:
+        if (
+            args.kappa is not None
+            or args.dry_run
+            or args.temperature is not None
+            or args.top_p is not None
+            or args.top_k is not None
+        ):
             parser.error(
-                "--aggregate cannot be combined with kappa, --temperature, or --dry-run"
+                "--aggregate cannot be combined with kappa, --temperature, "
+                "--top-p, --top-k, or --dry-run"
             )
         return aggregate()
     if args.kappa is None:
@@ -252,6 +322,8 @@ def main(argv=None):
         args.kappa,
         dry_run=args.dry_run,
         temperature=args.temperature,
+        top_p=args.top_p,
+        top_k=args.top_k,
     )
 
 

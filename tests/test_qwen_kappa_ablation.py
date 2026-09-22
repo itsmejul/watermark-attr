@@ -59,6 +59,50 @@ class QwenKappaAblationTests(unittest.TestCase):
             Path("results/ablations/qwen_temperature_source/temperature_1"),
         )
 
+    def test_top_p_override_is_isolated(self):
+        base = {
+            "watermark_model": "Qwen/Qwen3.5-9B",
+            "kappa": 6.0,
+            "temperature_watermark": 0.5,
+            "top_p_watermark": 0.9,
+            "n_samples": 64000,
+            "batch_size": 5000,
+        }
+        with patch.object(ablation, "_load_json", return_value=base):
+            config = ablation._condition_config(6, top_p=1.0)
+        self.assertEqual(config["temperature_watermark"], 0.5)
+        self.assertEqual(config["top_p_watermark"], 1.0)
+        self.assertEqual(base["top_p_watermark"], 0.9)
+        self.assertEqual(
+            ablation._output_path(6, top_p=1.0),
+            Path("results/ablations/qwen_top_p_source/top_p_1"),
+        )
+
+    def test_sampling_combination_has_isolated_path(self):
+        base = {
+            "watermark_model": "Qwen/Qwen3.5-9B",
+            "kappa": 6.0,
+            "temperature_watermark": 0.5,
+            "top_p_watermark": 0.9,
+            "top_k_watermark": 50,
+            "n_samples": 64000,
+            "batch_size": 5000,
+        }
+        with patch.object(ablation, "_load_json", return_value=base):
+            config = ablation._condition_config(
+                6, temperature=1.0, top_p=1.0, top_k=0
+            )
+        self.assertEqual(config["temperature_watermark"], 1.0)
+        self.assertEqual(config["top_p_watermark"], 1.0)
+        self.assertEqual(config["top_k_watermark"], 0)
+        self.assertEqual(
+            ablation._output_path(6, temperature=1.0, top_p=1.0, top_k=0),
+            Path(
+                "results/ablations/qwen_sampling_source/"
+                "kappa_6__temperature_1__top_p_1__top_k_0"
+            ),
+        )
+
     def test_write_or_validate_rejects_changed_condition(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

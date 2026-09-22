@@ -7,6 +7,41 @@ import unittest
 
 
 class SubmissionTests(unittest.TestCase):
+    def test_llama_eosfix_additional_helper_repairs_missing_run_then_metrics(self):
+        repo = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "data/t_ws").mkdir(parents=True)
+            (root / "data/t_ws/combined_t_ws.json").write_text("[]")
+            submit_script = str(repo / "scripts/submit_llama_eosfix_additional_evals.sh")
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            python = bin_dir / "python"
+            python.write_text('#!/bin/bash\nexit 0\n')
+            python.chmod(0o755)
+            sbatch = bin_dir / "sbatch"
+            sbatch.write_text(
+                '#!/bin/bash\nprintf "%s\\n" "$*" >> "$SUBMISSION_TEST_LOG"\necho 777\n'
+            )
+            sbatch.chmod(0o755)
+            log = root / "jobs.txt"
+            env = {**os.environ, "QWEN_VENV_DIR": str(root),
+                   "SUBMISSION_TEST_LOG": str(log),
+                   "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"]}
+            subprocess.run(["bash", submit_script, "capella"], cwd=root, env=env,
+                           check=True, capture_output=True, text=True)
+            jobs = log.read_text().splitlines()
+            self.assertEqual(len(jobs), 19)
+            self.assertIn("full_pipeline_llama_eosfix 100 abstracts_and_titles 32 1000",
+                          jobs[0])
+            self.assertNotIn("--eval-only", jobs[0])
+            self.assertEqual(sum("similarity_eval --profile llama_eosfix" in x
+                                 for x in jobs), 18)
+            dependent = [x for x in jobs if
+                         "--n_samples 100 --sample_type abstracts_and_titles" in x]
+            self.assertEqual(len(dependent), 1)
+            self.assertIn("--dependency=afterok:777", dependent[0])
+
     def test_llama_eosfix_helper_submits_isolated_18_job_grid(self):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
@@ -38,7 +73,7 @@ class SubmissionTests(unittest.TestCase):
                     self.assertEqual(sum(expected in line for line in jobs), 1)
             self.assertTrue(all("launch_capella_qwen.sh" in line for line in jobs))
 
-    def test_qwen_on_llama_additional_eval_helper_submits_four_jobs(self):
+    def test_qwen_on_llama_additional_eval_helper_submits_split_metric_jobs(self):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -60,12 +95,16 @@ class SubmissionTests(unittest.TestCase):
             subprocess.run(["bash", submit_script, "capella"], cwd=root, env=env,
                            check=True, capture_output=True, text=True)
             jobs = log.read_text().splitlines()
-            self.assertEqual(len(jobs), 4)
+            self.assertEqual(len(jobs), 19)
             self.assertEqual(sum("qwen_on_llama_open_pipeline" in line for line in jobs), 1)
             self.assertIn("qwen_on_llama_open_pipeline 1000 abstracts_only 32 1000 --resume", jobs[0])
-            self.assertEqual(sum("similarity_eval --profile qwen_on_llama" in line for line in jobs), 3)
+            self.assertEqual(sum("similarity_eval --profile qwen_on_llama" in line for line in jobs), 18)
             self.assertIn("--resume", jobs[0])
             self.assertTrue(all("--skip-existing" in line for line in jobs[1:]))
+            for sample_type in ("abstracts_only", "abstracts_and_titles", "questions"):
+                for n in (100, 500, 1000, 5000, 10000, 50000):
+                    expected = f"--n_samples {n} --sample_type {sample_type} --batch_size 32"
+                    self.assertEqual(sum(expected in line for line in jobs), 1)
 
     def test_submits_exactly_one_job_per_experiment_and_size(self):
         repo = Path(__file__).resolve().parents[1]

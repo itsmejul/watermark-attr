@@ -47,17 +47,32 @@ mkdir -p job_outputs
     1000 abstracts_only 32 1000 --preflight >/dev/null
 
 # The open-keyspace ablation is intentionally only Experiment 1 at N=1,000.
-# It evaluates all 20 saved checkpoints; --resume makes re-submission safe.
-sbatch --job-name="qol-open-abstracts_only-1000" "$launcher" \
-    src.experiments.main.qwen_on_llama_open_pipeline \
-    1000 abstracts_only 32 1000 --resume
+# Avoid consuming a GPU allocation when all 20 checkpoints are already done.
+open_complete=true
+for epoch in $(seq 5 5 100); do
+    epoch_dir="results/experiment1-qwen-on-llama/prefix_10/1000/32/${epoch}"
+    for filename in answers_open.json eval_manifest_open.json verification_open.json; do
+        [[ -f "${epoch_dir}/${filename}" ]] || open_complete=false
+    done
+done
+if [[ "$open_complete" != true ]]; then
+    sbatch --job-name="qol-open-abstracts_only-1000" "$launcher" \
+        src.experiments.main.qwen_on_llama_open_pipeline \
+        1000 abstracts_only 32 1000 --resume
+else
+    echo "Open-keyspace N=1000 is already complete; not submitting it again."
+fi
 
-# One auxiliary-metric sweep per experiment. It evaluates the best and final
-# epochs and skips files already produced by an earlier/restarted job.
+# One auxiliary-metric job per configuration. Splitting the former three long
+# sweeps prevents the 5k/50k configurations from exhausting one Slurm limit.
+# Each job evaluates the best and final epochs and skips files already present.
 for sample_type in abstracts_only abstracts_and_titles questions; do
-    sbatch --job-name="qol-metrics-${sample_type}" "$launcher" \
-        src.experiments.main.similarity_eval \
-        --profile qwen_on_llama \
-        --metrics bm25 cosine bertscore bigram lcs \
-        --sweep --sample_types "$sample_type" --skip-existing
+    for n in 100 500 1000 5000 10000 50000; do
+        sbatch --job-name="qol-metrics-${sample_type}-${n}" "$launcher" \
+            src.experiments.main.similarity_eval \
+            --profile qwen_on_llama \
+            --metrics bm25 cosine bertscore bigram lcs \
+            --n_samples "$n" --sample_type "$sample_type" \
+            --batch_size 32 --skip-existing
+    done
 done

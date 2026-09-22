@@ -20,7 +20,7 @@ class ExperimentProfile:
     name: str = "llama"
 
     def __post_init__(self):
-        if self.name not in ("llama", "qwen", "qwen_on_llama"):
+        if self.name not in ("llama", "llama_eosfix", "qwen", "qwen_on_llama"):
             raise ValueError(f"Unknown profile: {self.name}")
 
     @property
@@ -28,8 +28,17 @@ class ExperimentProfile:
         return self.name in ("qwen", "qwen_on_llama")
 
     @property
+    def uses_50000_grid(self):
+        return self.name in ("llama_eosfix", "qwen", "qwen_on_llama")
+
+    @property
     def suffix(self):
-        return {"llama": "", "qwen": "-qwen", "qwen_on_llama": "-qwen-on-llama"}[self.name]
+        return {
+            "llama": "",
+            "llama_eosfix": "-llamaeosfix",
+            "qwen": "-qwen",
+            "qwen_on_llama": "-qwen-on-llama",
+        }[self.name]
 
     @property
     def corpus_dir(self):
@@ -66,7 +75,12 @@ class ExperimentProfile:
 
     def adapter_root(self, sample_type, unwatermarked=False):
         name = sample_type + ("_unwatermarked" if unwatermarked else "")
-        namespace = {"llama": [], "qwen": ["qwen"], "qwen_on_llama": ["qwen_on_llama"]}[self.name]
+        namespace = {
+            "llama": [],
+            "llama_eosfix": ["llamaeosfix"],
+            "qwen": ["qwen"],
+            "qwen_on_llama": ["qwen_on_llama"],
+        }[self.name]
         return ["lora_adapters", *namespace, name]
 
     def train_config(self, sample_type):
@@ -82,14 +96,19 @@ class ExperimentProfile:
         return config
 
     def check_waterfall(self, modern_llama=False):
-        expected = "0.3.4" if self.is_qwen_trained or modern_llama else "0.2.13"
+        expected = ("0.3.4" if self.is_qwen_trained or self.name == "llama_eosfix"
+                    or modern_llama else "0.2.13")
         actual = version("waterfall")
         if actual != expected:
             raise RuntimeError(f"{self.name} requires waterfall=={expected}; found {actual}. Use its separate environment.")
 
 
 def add_profile_argument(parser):
-    parser.add_argument("--profile", choices=("llama", "qwen", "qwen_on_llama"), default="llama")
+    parser.add_argument(
+        "--profile",
+        choices=("llama", "llama_eosfix", "qwen", "qwen_on_llama"),
+        default="llama",
+    )
 
 
 def dispatch_profile(mode):
@@ -107,6 +126,8 @@ def dispatch_profile(mode):
         from src.experiments.main.qwen_pipeline import main
         main(mode, remaining, watermark_source="llama" if args.profile == "qwen_on_llama" else "qwen")
         raise SystemExit(0)
+    if args.profile == "llama_eosfix" and mode == "watermarked":
+        remaining.append("--eos-fix")
     # Never silently re-score old corpora under the new Fourier convention.
     if not any(x in remaining for x in ("--help", "-h")):
         # The isolated EOS-fix arm runs on the maintained stack, but still

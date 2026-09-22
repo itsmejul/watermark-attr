@@ -34,6 +34,16 @@ class ProfileTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 p.check_waterfall()
 
+        eos = ExperimentProfile("llama_eosfix")
+        self.assertTrue(eos.uses_50000_grid)
+        self.assertEqual(eos.experiment_dir("abstracts_and_titles"),
+                         "experiment2-llamaeosfix")
+        self.assertEqual(eos.adapter_root("abstracts_only"),
+                         ["lora_adapters", "llamaeosfix", "abstracts_only"])
+        self.assertEqual(eos.corpus_dir, "data/t_ws")
+        with patch("src.util.experiment_profile.version", return_value="0.3.4"):
+            eos.check_waterfall()
+
     def test_all_18_qwen_configs_are_isolated(self):
         p = ExperimentProfile("qwen")
         roots = set()
@@ -182,6 +192,12 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"], "experiment1-qwen-on-llama")
             self.assertEqual(str(sim.BIGRAMS_NPZ), str(Path(__file__).resolve().parents[1] / "data/t_ws/bigrams.npz"))
             self.assertEqual(sim.TOKENIZER_NAME, "meta-llama/Llama-3.1-8B-Instruct")
+            sim.configure_profile("llama_eosfix")
+            self.assertEqual(sim.SAMPLE_SIZES, QWEN_SIZES)
+            self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"],
+                             "experiment1-llamaeosfix")
+            self.assertEqual(sim.TOKENIZER_NAME,
+                             "meta-llama/Llama-3.1-8B-Instruct")
         finally:
             sim.configure_profile("llama")
         self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"], "experiment1")
@@ -216,6 +232,21 @@ class ProfileTests(unittest.TestCase):
             if experiment == 1:
                 self.assertIn("OPEN_SAMPLE_SIZE = 1000", source)
                 self.assertIn("exp1_open_keyspace_n1000.pdf", source)
+            for cell in nb["cells"]:
+                if cell["cell_type"] == "code":
+                    compile("".join(cell["source"]), str(path), "exec")
+
+    def test_llama_eosfix_notebooks_cover_all_experiments_and_are_isolated(self):
+        root = Path(__file__).resolve().parents[1]
+        notebooks = sorted((root / "src/eval").glob("experiment*_eval_llama_eosfix.ipynb"))
+        self.assertEqual(len(notebooks), 3)
+        for experiment, path in enumerate(notebooks, 1):
+            nb = json.loads(path.read_text())
+            source = "".join("".join(c["source"]) for c in nb["cells"])
+            self.assertIn(f"experiment{experiment}-llamaeosfix", source)
+            self.assertIn("lora_adapters/llamaeosfix/", source)
+            self.assertIn("figures/results/llamaeosfix/", source)
+            self.assertNotIn("63800", source)
             for cell in nb["cells"]:
                 if cell["cell_type"] == "code":
                     compile("".join(cell["source"]), str(path), "exec")

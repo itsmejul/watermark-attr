@@ -14,8 +14,14 @@ class FullPipelinePretrainedTests(unittest.TestCase):
         with contextlib.redirect_stdout(output):
             pipeline.main(["--dry-run"])
         resolved = json.loads(output.getvalue())
-        self.assertEqual(resolved["models"], "full_models/qwen/abstracts_only/1000/32")
-        self.assertEqual(resolved["results"], "results/experiment1-qwen-pretrained")
+        self.assertEqual(resolved["models"], "full_models/qwen_on_llama/abstracts_only/1000/32")
+        self.assertEqual(resolved["results"], "results/experiment1-qwen-on-llama-pretrained")
+        self.assertEqual(resolved["training_model"], "Qwen/Qwen3.5-9B")
+        self.assertEqual(resolved["watermark_source"], "llama")
+        self.assertEqual(resolved["detector_model"], "meta-llama/Llama-3.1-8B-Instruct")
+        self.assertEqual(
+            resolved["subset"]["texts_path"], "data/t_ws/combined_t_ws.json"
+        )
         self.assertEqual(resolved["train"]["epochs"], 5)
         self.assertEqual(resolved["train"]["save_every_n_epochs"], 1)
         self.assertEqual(resolved["train"]["micro_batch_size"], 1)
@@ -39,13 +45,33 @@ class FullPipelinePretrainedTests(unittest.TestCase):
                 self.assertEqual(resolved["train"]["batch_size"], 16)
                 self.assertEqual(resolved["subset"], profile.subset_kwargs())
 
+    def test_qwen_on_llama_profile_uses_separate_roots(self):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            pipeline.main([
+                "1000", "abstracts_only", "32", "1000",
+                "--profile", "qwen_on_llama", "--dry-run",
+            ])
+        resolved = json.loads(output.getvalue())
+        source = ExperimentProfile("llama")
+        self.assertEqual(
+            resolved["models"],
+            "full_models/qwen_on_llama/abstracts_only/1000/32",
+        )
+        self.assertEqual(
+            resolved["results"],
+            "results/experiment1-qwen-on-llama-pretrained",
+        )
+        self.assertEqual(resolved["subset"], source.subset_kwargs())
+        self.assertEqual(resolved["train"]["train_model"], "Qwen/Qwen3.5-9B")
+
     def test_smoke_paths_and_overrides(self):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             pipeline.main(["1000", "questions", "32", "1000", "--smoke",
                            "--micro-batch-size", "2", "--inference-batch-size", "8", "--dry-run"])
         resolved = json.loads(output.getvalue())
-        self.assertIn("full_models/qwen/smoke/", resolved["models"])
+        self.assertIn("full_models/qwen_on_llama/smoke/", resolved["models"])
         self.assertTrue(resolved["results"].endswith("-smoke"))
         self.assertEqual(resolved["train"]["epochs"], 1)
         self.assertEqual(resolved["train"]["n_samples"], 100)

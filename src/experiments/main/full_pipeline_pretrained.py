@@ -1,7 +1,8 @@
 """Qwen3.5 full-parameter continued-pretraining experiment pipeline.
 
 This mirrors the Qwen arm of ``full_pipeline.py`` but trains every text-model
-parameter for five epochs. Full models and results use separate roots.
+parameter for five epochs. It supports either the Qwen- or Llama-watermarked
+corpus, and full models/results use separate roots for each source.
 
 Usage:
     python -m src.experiments.main.full_pipeline_pretrained \
@@ -30,8 +31,15 @@ def parse_args(argv=None):
     parser.add_argument("batch_size", type=int, nargs="?", default=32,
                         help="effective batch size, including gradient accumulation")
     parser.add_argument("n_eval_samples", type=int, nargs="?", default=1000)
-    parser.add_argument("--profile", choices=("qwen",), default="qwen",
-                        help="accepted for command compatibility with full_pipeline.py")
+    parser.add_argument(
+        "--profile",
+        choices=("qwen", "qwen_on_llama"),
+        default="qwen_on_llama",
+        help=(
+            "watermarked corpus to train on; qwen_on_llama trains Qwen on "
+            "the Llama-watermarked corpus and is the recommended default"
+        ),
+    )
     parser.add_argument("--eval-only", action="store_true")
     parser.add_argument("--train-only", action="store_true")
     parser.add_argument("--resume", action="store_true")
@@ -90,21 +98,37 @@ def saved_epochs(config):
 
 def main(argv=None):
     args = parse_args(argv)
-    profile = ExperimentProfile("qwen")
-    config = training_config(profile, args)
-    model_root = ["full_models", "qwen", args.sample_type,
+    training_profile = ExperimentProfile("qwen")
+    cross_model = args.profile == "qwen_on_llama"
+    source_profile = ExperimentProfile("llama" if cross_model else "qwen")
+    config = training_config(training_profile, args)
+    model_namespace = "qwen_on_llama" if cross_model else "qwen"
+    model_root = ["full_models", model_namespace, args.sample_type,
                   str(args.n_samples), str(args.batch_size)]
-    result_dir = f"{profile.experiment_dir(args.sample_type)}-pretrained"
+    experiment_number = SAMPLE_TYPES.index(args.sample_type) + 1
+    result_dir = (
+        f"experiment{experiment_number}-qwen-on-llama-pretrained"
+        if cross_model
+        else f"experiment{experiment_number}-qwen-pretrained"
+    )
     if args.smoke:
         model_root.insert(2, "smoke")
         result_dir += "-smoke"
 
-    generation = load_path_file(["data"], "generation_config.json") | config | profile.watermark_config
+    generation = (
+        load_path_file(["data"], "generation_config.json")
+        | config
+        | source_profile.watermark_config
+    )
     generation["batch_size"] = args.batch_size
+    subset_kwargs = source_profile.subset_kwargs()
     print(json.dumps({
         "models": "/".join(model_root),
         "results": f"results/{result_dir}",
-        "subset": profile.subset_kwargs(),
+        "training_model": training_profile.model,
+        "watermark_source": "llama" if cross_model else "qwen",
+        "detector_model": source_profile.model,
+        "subset": subset_kwargs,
         "train": config,
         "generation": {key: generation[key] for key in
                        ("do_sample", "temperature", "top_p", "max_response_tokens")},
@@ -112,29 +136,31 @@ def main(argv=None):
     if args.dry_run:
         return
 
-    subset = load_subset(n=args.n_samples, **profile.subset_kwargs())
-    heldout = load_held_out_set(**profile.subset_kwargs())
+    subset = load_subset(n=args.n_samples, **subset_kwargs)
+    heldout = load_held_out_set(**subset_kwargs)
     if set(subset["k_ps"]) & set(heldout["k_ps"]):
         raise ValueError("Training keys overlap held-out keys")
     if len(set(subset["ids"])) != 1:
         raise ValueError("This experiment expects one shared Waterfall ID")
-    corpus_manifest_path = REPO_ROOT / profile.corpus_dir / "combined_manifest.json"
-    if (not corpus_manifest_path.is_file()
-            or json.loads(corpus_manifest_path.read_text())["combined_count"] != 64000):
-        raise ValueError("Combine all 13 complete Qwen watermark batches before running experiments.")
-    corpus_manifest = json.loads(corpus_manifest_path.read_text())
-    if (corpus_manifest["config_sha256"] != sha256(REPO_ROOT / profile.watermark_config_path)
-            or corpus_manifest["keys_sha256"] != sha256(REPO_ROOT / "data/keys.json")
-            or corpus_manifest["watermark_model"] != profile.model):
-        raise ValueError("Combined corpus manifest does not match the Qwen config/keys")
-    required = [*profile.subset_kwargs().values(), "data/seeded_dataset.jsonl",
+    if not cross_model:
+        corpus_manifest_path = REPO_ROOT / source_profile.corpus_dir / "combined_manifest.json"
+        if (not corpus_manifest_path.is_file()
+                or json.loads(corpus_manifest_path.read_text())["combined_count"] != 64000):
+            raise ValueError("Combine all 13 complete Qwen watermark batches before running experiments.")
+        corpus_manifest = json.loads(corpus_manifest_path.read_text())
+        if (corpus_manifest["config_sha256"]
+                != sha256(REPO_ROOT / source_profile.watermark_config_path)
+                or corpus_manifest["keys_sha256"] != sha256(REPO_ROOT / "data/keys.json")
+                or corpus_manifest["watermark_model"] != source_profile.model):
+            raise ValueError("Combined corpus manifest does not match the Qwen config/keys")
+    required = [*subset_kwargs.values(), "data/seeded_dataset.jsonl",
                 *[f"data/prompts/{name}.json" for name in
                   ("titles_1", "titles_2", "titles_3", "questions")]]
     if args.preflight:
-        print("Preflight passed: aligned corpus, prompts, keys, held-out split, and manifests.")
+        print("Preflight passed: aligned corpus, prompts, keys, held-out split, and source routing.")
         return
 
-    profile.check_waterfall()
+    training_profile.check_waterfall()
     if version("transformers") != "5.5.0":
         raise RuntimeError("Use requirements-qwen-experiments.txt in .venv-qwen-experiments.")
     from unsloth import FastLanguageModel  # noqa: F401 - patch before Transformers imports
@@ -143,12 +169,16 @@ def main(argv=None):
     from src.util.llm import ask_batched
     from src.util.watermark import init_watermarker, verify_watermarks_full
 
-    tokenizer = AutoTokenizer.from_pretrained(profile.model)
+    tokenizer = AutoTokenizer.from_pretrained(training_profile.model)
     fingerprints = {path: sha256(REPO_ROOT / path) for path in sorted(set(required))}
     versions = {package: version(package) for package in
                 ("unsloth", "unsloth-zoo", "transformers", "waterfall", "torch", "peft", "bitsandbytes")}
     manifest = {
-        "profile": "qwen",
+        "profile": args.profile,
+        "watermark_source": "llama" if cross_model else "qwen",
+        "training_model": training_profile.model,
+        "detector_model": source_profile.model,
+        "legacy_fourier": cross_model,
         "training_method": "full_finetuning",
         "config": config,
         "n_samples": args.n_samples,
@@ -212,6 +242,7 @@ def main(argv=None):
                     answers, subset["ids"][0], [subset["k_ps"][i] for i in indices],
                     watermarker, output, candidate_k_ps=subset["k_ps"],
                     top_k=min(100, len(subset["k_ps"])),
+                    legacy_fourier=cross_model,
                 )
                 del watermarker
 

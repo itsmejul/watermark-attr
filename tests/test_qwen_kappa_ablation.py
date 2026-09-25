@@ -103,6 +103,32 @@ class QwenKappaAblationTests(unittest.TestCase):
             ),
         )
 
+    def test_unfiltered_strength_grid_accepts_all_requested_kappas(self):
+        base = {
+            "watermark_model": "Qwen/Qwen3.5-9B",
+            "kappa": 6.0,
+            "temperature_watermark": 0.5,
+            "top_p_watermark": 0.9,
+            "top_k_watermark": 50,
+            "n_samples": 64000,
+            "batch_size": 5000,
+        }
+        with patch.object(ablation, "_load_json", return_value=base), patch.object(
+            ablation,
+            "_condition_data",
+            return_value=(["text"] * 100, [1] * 100, list(range(1, 101))),
+        ):
+            for kappa in ablation.SAMPLING_STRENGTH_KAPPAS:
+                with self.subTest(kappa=kappa):
+                    result = ablation.run_condition(
+                        kappa,
+                        dry_run=True,
+                        temperature=1.0,
+                        top_p=1.0,
+                        top_k=0,
+                    )
+                    self.assertIsNone(result)
+
     def test_write_or_validate_rejects_changed_condition(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

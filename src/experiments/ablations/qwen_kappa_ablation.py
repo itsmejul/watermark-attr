@@ -2,7 +2,8 @@
 
 This experiment deliberately stops after watermark insertion: it does not
 fine-tune a model.  All conditions use the same first 100 abstracts, IDs,
-keys, and per-text random seeds so that kappa is the only changed parameter.
+keys, and per-text random seeds so that the requested sampling parameter is
+the only changed variable.
 
 Examples:
     python -m src.experiments.ablations.qwen_kappa_ablation 6
@@ -11,6 +12,7 @@ Examples:
     python -m src.experiments.ablations.qwen_kappa_ablation 6 --temperature 1.0 --top-p 1.0 --top-k 0
     python -m src.experiments.ablations.qwen_kappa_ablation 10 --dry-run
     python -m src.experiments.ablations.qwen_kappa_ablation --aggregate
+    python -m src.experiments.ablations.qwen_kappa_ablation --aggregate-strength
 """
 
 from __future__ import annotations
@@ -24,12 +26,18 @@ from src.util.filereader import REPO_ROOT, load_abstracts, write_path_file_atomi
 
 
 KAPPAS = (6, 10, 14)
+SAMPLING_STRENGTH_KAPPAS = (2, 4, 6, 8, 10, 12)
+SUPPORTED_KAPPAS = tuple(sorted(set(KAPPAS) | set(SAMPLING_STRENGTH_KAPPAS)))
 N_SAMPLES = 100
 GENERATION_SEED = 20260920
 OUTPUT_ROOT = Path("results/ablations/qwen_kappa_source")
 TEMPERATURE_OUTPUT_ROOT = Path("results/ablations/qwen_temperature_source")
 TOP_P_OUTPUT_ROOT = Path("results/ablations/qwen_top_p_source")
 SAMPLING_OUTPUT_ROOT = Path("results/ablations/qwen_sampling_source")
+SAMPLING_STRENGTH_SUMMARY = (
+    SAMPLING_OUTPUT_ROOT
+    / "kappa_strength__temperature_1__top_p_1__top_k_0_summary.json"
+)
 BASE_CONFIG_PATH = Path("data/watermark_config_qwen3_5_9b.json")
 KEYS_PATH = Path("data/keys.json")
 
@@ -162,8 +170,12 @@ def run_condition(
     top_p: float | None = None,
     top_k: int | None = None,
 ) -> dict | None:
-    if kappa not in KAPPAS:
-        raise ValueError(f"kappa must be one of {KAPPAS}; got {kappa}")
+    has_sampling_override = any(
+        value is not None for value in (temperature, top_p, top_k)
+    )
+    allowed = SUPPORTED_KAPPAS if has_sampling_override else KAPPAS
+    if kappa not in allowed:
+        raise ValueError(f"kappa must be one of {allowed}; got {kappa}")
 
     output_path = _output_path(kappa, temperature, top_p, top_k)
     config = _condition_config(kappa, temperature, top_p, top_k)
@@ -262,9 +274,44 @@ def aggregate() -> list[dict]:
     return summaries
 
 
+def aggregate_sampling_strength() -> list[dict]:
+    """Collect the temperature-1, unfiltered sampling-strength sweep."""
+    summaries = []
+    missing = []
+    for kappa in SAMPLING_STRENGTH_KAPPAS:
+        path = _output_path(
+            kappa, temperature=1.0, top_p=1.0, top_k=0
+        ) / "summary.json"
+        if not (REPO_ROOT / path).is_file():
+            missing.append(str(path))
+            continue
+        summary = _load_json(path)
+        expected = {
+            "kappa": float(kappa),
+            "temperature": 1.0,
+            "top_p": 1.0,
+            "top_k": 0,
+        }
+        if any(summary.get(key) != value for key, value in expected.items()):
+            raise ValueError(f"Unexpected condition metadata in {path}")
+        summaries.append(summary)
+    if missing:
+        raise FileNotFoundError(
+            "Missing completed strength conditions: " + ", ".join(missing)
+        )
+    summaries.sort(key=lambda item: item["kappa"])
+    write_path_file_atomic(
+        list(SAMPLING_STRENGTH_SUMMARY.parent.parts),
+        SAMPLING_STRENGTH_SUMMARY.name,
+        summaries,
+    )
+    print(json.dumps(summaries, indent=2))
+    return summaries
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("kappa", nargs="?", type=int, choices=KAPPAS)
+    parser.add_argument("kappa", nargs="?", type=int, choices=SUPPORTED_KAPPAS)
     parser.add_argument(
         "--temperature",
         type=float,
@@ -298,26 +345,35 @@ def main(argv=None):
         help="combine the three completed per-kappa summaries",
     )
     parser.add_argument(
+        "--aggregate-strength",
+        action="store_true",
+        help=(
+            "combine the completed kappa=2,4,6,8,10,12 summaries for "
+            "temperature 1.0 with top-p and top-k disabled"
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="validate inputs and print the resolved condition without loading Qwen",
     )
     args = parser.parse_args(argv)
-    if args.aggregate:
+    if args.aggregate or args.aggregate_strength:
         if (
-            args.kappa is not None
+            (args.aggregate and args.aggregate_strength)
+            or args.kappa is not None
             or args.dry_run
             or args.temperature is not None
             or args.top_p is not None
             or args.top_k is not None
         ):
             parser.error(
-                "--aggregate cannot be combined with kappa, --temperature, "
-                "--top-p, --top-k, or --dry-run"
+                "aggregation cannot be combined with another aggregation, "
+                "kappa, --temperature, --top-p, --top-k, or --dry-run"
             )
-        return aggregate()
+        return aggregate() if args.aggregate else aggregate_sampling_strength()
     if args.kappa is None:
-        parser.error("kappa is required unless --aggregate is used")
+        parser.error("kappa is required unless an aggregation mode is used")
     return run_condition(
         args.kappa,
         dry_run=args.dry_run,

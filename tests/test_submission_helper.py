@@ -7,6 +7,49 @@ import unittest
 
 
 class SubmissionTests(unittest.TestCase):
+    def test_qwen_strength_helper_submits_six_unfiltered_conditions(self):
+        repo = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "data").mkdir()
+            (root / "data/watermark_config_qwen3_5_9b.json").write_text("{}")
+            (root / "data/keys.json").write_text("{}")
+            submit_script = str(repo / "scripts/submit_qwen_strength_ablation.sh")
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            python = bin_dir / "python"
+            python.write_text('#!/bin/bash\nexit 0\n')
+            python.chmod(0o755)
+            sbatch = bin_dir / "sbatch"
+            sbatch.write_text(
+                '#!/bin/bash\nprintf "%s\\n" "$*" >> "$SUBMISSION_TEST_LOG"\n'
+            )
+            sbatch.chmod(0o755)
+            log = root / "jobs.txt"
+            env = {**os.environ, "QWEN_VENV_DIR": str(root),
+                   "SUBMISSION_TEST_LOG": str(log),
+                   "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"]}
+            subprocess.run(["bash", submit_script, "capella"], cwd=root, env=env,
+                           check=True, capture_output=True, text=True)
+            jobs = log.read_text().splitlines()
+            self.assertEqual(len(jobs), 6)
+            for kappa in (2, 4, 6, 8, 10, 12):
+                expected = (f"qwen_kappa_ablation {kappa} --temperature 1.0 "
+                            "--top-p 1.0 --top-k 0")
+                self.assertEqual(sum(expected in line for line in jobs), 1)
+
+            completed = (root / "results/ablations/qwen_sampling_source/"
+                         "kappa_6__temperature_1__top_p_1__top_k_0")
+            completed.mkdir(parents=True)
+            (completed / "summary.json").write_text("{}")
+            log.unlink()
+            subprocess.run(["bash", submit_script, "capella"], cwd=root, env=env,
+                           check=True, capture_output=True, text=True)
+            resumed_jobs = log.read_text().splitlines()
+            self.assertEqual(len(resumed_jobs), 5)
+            self.assertFalse(any("qwen_kappa_ablation 6 " in line
+                                 for line in resumed_jobs))
+
     def test_llama_eosfix_additional_helper_repairs_missing_run_then_metrics(self):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:

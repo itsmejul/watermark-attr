@@ -202,6 +202,40 @@ class ProfileTests(unittest.TestCase):
             sim.configure_profile("llama")
         self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"], "experiment1")
 
+    def test_bertscore_transformers5_roberta_compatibility(self):
+        from src.experiments.main import similarity_eval as sim
+
+        tokenizer = SimpleNamespace(bos_token_id=0, eos_token_id=2)
+        self.assertTrue(sim._ensure_bertscore_tokenizer_compat(tokenizer))
+        self.assertEqual(tokenizer.build_inputs_with_special_tokens([]), [0, 2])
+        self.assertEqual(
+            tokenizer.build_inputs_with_special_tokens([11, 12]),
+            [0, 11, 12, 2],
+        )
+        self.assertEqual(
+            tokenizer.build_inputs_with_special_tokens([11], [22]),
+            [0, 11, 2, 2, 22, 2],
+        )
+        self.assertFalse(sim._ensure_bertscore_tokenizer_compat(tokenizer))
+
+        class FakeBERTScorer:
+            def __init__(self, **_kwargs):
+                self._tokenizer = SimpleNamespace(bos_token_id=0, eos_token_id=2)
+
+        fake_torch = SimpleNamespace(
+            cuda=SimpleNamespace(is_available=lambda: False)
+        )
+        fake_bert_score = SimpleNamespace(BERTScorer=FakeBERTScorer)
+        with patch.dict("sys.modules", {
+            "torch": fake_torch,
+            "bert_score": fake_bert_score,
+        }), contextlib.redirect_stdout(io.StringIO()):
+            scorer = sim.Resources().bertscorer()
+        self.assertEqual(
+            scorer._tokenizer.build_inputs_with_special_tokens([7]),
+            [0, 7, 2],
+        )
+
     def test_qwen_notebooks_isolated_and_cleared(self):
         root = Path(__file__).resolve().parents[1]
         notebooks = list((root / "src/eval").glob("*_qwen.ipynb"))

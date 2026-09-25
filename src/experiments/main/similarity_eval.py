@@ -196,6 +196,44 @@ def discover_configs(sample_types=SAMPLE_TYPES,
                     yield (sample_type, n, bs)
 
 
+def _ensure_bertscore_tokenizer_compat(tokenizer):
+    """Restore the RoBERTa helper removed by Transformers 5.
+
+    bert-score 0.3.13 still calls ``build_inputs_with_special_tokens`` when
+    encoding pre-tokenized input.  Transformers 5 removed that legacy method
+    from ``RobertaTokenizer``.  BERTScore is fixed to roberta-large here, so
+    install the equivalent RoBERTa sequence construction on that tokenizer
+    instance without changing either package globally.
+    """
+    if callable(getattr(tokenizer, "build_inputs_with_special_tokens", None)):
+        return False
+
+    bos_token_id = getattr(tokenizer, "bos_token_id", None)
+    eos_token_id = getattr(tokenizer, "eos_token_id", None)
+    if bos_token_id is None or eos_token_id is None:
+        raise RuntimeError(
+            "BERTScore tokenizer compatibility requires bos_token_id and "
+            "eos_token_id"
+        )
+
+    def build_inputs_with_special_tokens(token_ids_0, token_ids_1=None):
+        first = list(token_ids_0)
+        if token_ids_1 is None:
+            return [bos_token_id, *first, eos_token_id]
+        # RoBERTa pair format: <s> A </s></s> B </s>
+        return [
+            bos_token_id,
+            *first,
+            eos_token_id,
+            eos_token_id,
+            *list(token_ids_1),
+            eos_token_id,
+        ]
+
+    tokenizer.build_inputs_with_special_tokens = build_inputs_with_special_tokens
+    return True
+
+
 class Resources:
     def __init__(self):
         self._tokenizer = None
@@ -232,6 +270,8 @@ class Resources:
                 rescale_with_baseline=True,
                 device=device,
             )
+            if _ensure_bertscore_tokenizer_compat(self._bertscorer._tokenizer):
+                print("installed Transformers 5 compatibility shim for BERTScore tokenizer")
         return self._bertscorer
 
     def target_bigrams(self):

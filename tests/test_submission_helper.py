@@ -7,6 +7,46 @@ import unittest
 
 
 class SubmissionTests(unittest.TestCase):
+    def test_qwen_lengthfix_helper_submits_six_isolated_conditions(self):
+        repo = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "data").mkdir()
+            (root / "data/watermark_config_qwen3_5_9b.json").write_text("{}")
+            (root / "data/keys.json").write_text("{}")
+            submit_script = str(
+                repo / "scripts/submit_qwen_strength_lengthfix_ablation.sh"
+            )
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            python = bin_dir / "python"
+            python.write_text('#!/bin/bash\nexit 0\n')
+            python.chmod(0o755)
+            sbatch = bin_dir / "sbatch"
+            sbatch.write_text(
+                '#!/bin/bash\nprintf "%s\\n" "$*" >> "$SUBMISSION_TEST_LOG"\n'
+            )
+            sbatch.chmod(0o755)
+            log = root / "jobs.txt"
+            env = {
+                **os.environ,
+                "QWEN_VENV_DIR": str(root),
+                "SUBMISSION_TEST_LOG": str(log),
+                "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+            }
+            subprocess.run(
+                ["bash", submit_script, "capella"],
+                cwd=root,
+                env=env,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            jobs = log.read_text().splitlines()
+            self.assertEqual(len(jobs), 6)
+            self.assertTrue(all("--token-length-limit" in line for line in jobs))
+            self.assertTrue(all("qwen-lenfix-k" in line for line in jobs))
+
     def test_qwen_strength_helper_submits_six_unfiltered_conditions(self):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:

@@ -34,8 +34,16 @@ OUTPUT_ROOT = Path("results/ablations/qwen_kappa_source")
 TEMPERATURE_OUTPUT_ROOT = Path("results/ablations/qwen_temperature_source")
 TOP_P_OUTPUT_ROOT = Path("results/ablations/qwen_top_p_source")
 SAMPLING_OUTPUT_ROOT = Path("results/ablations/qwen_sampling_source")
+SAMPLING_LENGTHFIX_OUTPUT_ROOT = Path(
+    "results/ablations/qwen_sampling_source_lengthfix"
+)
+MAX_NEW_TOKENS_RATIO = 1.5
 SAMPLING_STRENGTH_SUMMARY = (
     SAMPLING_OUTPUT_ROOT
+    / "kappa_strength__temperature_1__top_p_1__top_k_0_summary.json"
+)
+SAMPLING_STRENGTH_LENGTHFIX_SUMMARY = (
+    SAMPLING_LENGTHFIX_OUTPUT_ROOT
     / "kappa_strength__temperature_1__top_p_1__top_k_0_summary.json"
 )
 BASE_CONFIG_PATH = Path("data/watermark_config_qwen3_5_9b.json")
@@ -56,6 +64,7 @@ def _output_path(
     temperature: float | None = None,
     top_p: float | None = None,
     top_k: int | None = None,
+    token_length_limit: bool = False,
 ) -> Path:
     overrides = sum(value is not None for value in (temperature, top_p, top_k))
     if overrides > 1 or top_k is not None:
@@ -66,7 +75,12 @@ def _output_path(
             parts.append(f"top_p_{_temperature_slug(top_p)}")
         if top_k is not None:
             parts.append(f"top_k_{top_k}")
-        return SAMPLING_OUTPUT_ROOT / "__".join(parts)
+        root = (
+            SAMPLING_LENGTHFIX_OUTPUT_ROOT
+            if token_length_limit
+            else SAMPLING_OUTPUT_ROOT
+        )
+        return root / "__".join(parts)
     if temperature is not None:
         return TEMPERATURE_OUTPUT_ROOT / f"temperature_{_temperature_slug(temperature)}"
     if top_p is not None:
@@ -79,6 +93,7 @@ def _condition_config(
     temperature: float | None = None,
     top_p: float | None = None,
     top_k: int | None = None,
+    token_length_limit: bool = False,
 ) -> dict:
     config = dict(_load_json(BASE_CONFIG_PATH))
     config.update(
@@ -100,6 +115,8 @@ def _condition_config(
         if top_k < 0:
             raise ValueError("top_k must be nonnegative")
         config["top_k_watermark"] = int(top_k)
+    if token_length_limit:
+        config["max_new_tokens_ratio_watermark"] = MAX_NEW_TOKENS_RATIO
     return config
 
 
@@ -169,6 +186,7 @@ def run_condition(
     temperature: float | None = None,
     top_p: float | None = None,
     top_k: int | None = None,
+    token_length_limit: bool = False,
 ) -> dict | None:
     has_sampling_override = any(
         value is not None for value in (temperature, top_p, top_k)
@@ -177,14 +195,22 @@ def run_condition(
     if kappa not in allowed:
         raise ValueError(f"kappa must be one of {allowed}; got {kappa}")
 
-    output_path = _output_path(kappa, temperature, top_p, top_k)
-    config = _condition_config(kappa, temperature, top_p, top_k)
+    output_path = _output_path(
+        kappa, temperature, top_p, top_k, token_length_limit
+    )
+    config = _condition_config(
+        kappa, temperature, top_p, top_k, token_length_limit
+    )
     texts, ids, k_ps = _condition_data()
     manifest = {
         "experiment": (
-            "qwen_sampling_source"
-            if sum(value is not None for value in (temperature, top_p, top_k)) > 1
-            or top_k is not None
+            "qwen_sampling_source_lengthfix"
+            if token_length_limit
+            else "qwen_sampling_source"
+            if (
+                sum(value is not None for value in (temperature, top_p, top_k)) > 1
+                or top_k is not None
+            )
             else "qwen_temperature_source"
             if temperature is not None
             else "qwen_top_p_source"
@@ -202,6 +228,12 @@ def run_condition(
         "base_config": str(BASE_CONFIG_PATH),
         "keys_file": str(KEYS_PATH),
         "generation_seed": GENERATION_SEED,
+        "max_new_tokens_strategy": (
+            "source_text_tokens" if token_length_limit else "legacy_prompt_characters"
+        ),
+        "max_new_tokens_ratio": (
+            MAX_NEW_TOKENS_RATIO if token_length_limit else None
+        ),
         "output_dir": str(output_path),
     }
 
@@ -250,6 +282,8 @@ def run_condition(
         "temperature": config["temperature_watermark"],
         "top_p": config["top_p_watermark"],
         "top_k": config.get("top_k_watermark"),
+        "max_new_tokens_strategy": manifest["max_new_tokens_strategy"],
+        "max_new_tokens_ratio": manifest["max_new_tokens_ratio"],
         **summarize_verification(verification),
     }
     write_path_file_atomic(list(output_path.parts), "summary.json", summary)
@@ -274,13 +308,17 @@ def aggregate() -> list[dict]:
     return summaries
 
 
-def aggregate_sampling_strength() -> list[dict]:
+def aggregate_sampling_strength(token_length_limit: bool = False) -> list[dict]:
     """Collect the temperature-1, unfiltered sampling-strength sweep."""
     summaries = []
     missing = []
     for kappa in SAMPLING_STRENGTH_KAPPAS:
         path = _output_path(
-            kappa, temperature=1.0, top_p=1.0, top_k=0
+            kappa,
+            temperature=1.0,
+            top_p=1.0,
+            top_k=0,
+            token_length_limit=token_length_limit,
         ) / "summary.json"
         if not (REPO_ROOT / path).is_file():
             missing.append(str(path))
@@ -292,6 +330,11 @@ def aggregate_sampling_strength() -> list[dict]:
             "top_p": 1.0,
             "top_k": 0,
         }
+        if token_length_limit:
+            expected.update(
+                max_new_tokens_strategy="source_text_tokens",
+                max_new_tokens_ratio=MAX_NEW_TOKENS_RATIO,
+            )
         if any(summary.get(key) != value for key, value in expected.items()):
             raise ValueError(f"Unexpected condition metadata in {path}")
         summaries.append(summary)
@@ -300,11 +343,12 @@ def aggregate_sampling_strength() -> list[dict]:
             "Missing completed strength conditions: " + ", ".join(missing)
         )
     summaries.sort(key=lambda item: item["kappa"])
-    write_path_file_atomic(
-        list(SAMPLING_STRENGTH_SUMMARY.parent.parts),
-        SAMPLING_STRENGTH_SUMMARY.name,
-        summaries,
+    output = (
+        SAMPLING_STRENGTH_LENGTHFIX_SUMMARY
+        if token_length_limit
+        else SAMPLING_STRENGTH_SUMMARY
     )
+    write_path_file_atomic(list(output.parent.parts), output.name, summaries)
     print(json.dumps(summaries, indent=2))
     return summaries
 
@@ -353,25 +397,46 @@ def main(argv=None):
         ),
     )
     parser.add_argument(
+        "--aggregate-strength-lengthfix",
+        action="store_true",
+        help="combine the completed token-length-limited strength conditions",
+    )
+    parser.add_argument(
+        "--token-length-limit",
+        action="store_true",
+        help=(
+            "limit output to 1.5 times the original text's tokenizer-token count "
+            "and use the isolated qwen_sampling_source_lengthfix result tree"
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="validate inputs and print the resolved condition without loading Qwen",
     )
     args = parser.parse_args(argv)
-    if args.aggregate or args.aggregate_strength:
+    aggregation_count = sum(
+        (args.aggregate, args.aggregate_strength, args.aggregate_strength_lengthfix)
+    )
+    if aggregation_count:
         if (
-            (args.aggregate and args.aggregate_strength)
+            aggregation_count > 1
             or args.kappa is not None
             or args.dry_run
             or args.temperature is not None
             or args.top_p is not None
             or args.top_k is not None
+            or args.token_length_limit
         ):
             parser.error(
                 "aggregation cannot be combined with another aggregation, "
                 "kappa, --temperature, --top-p, --top-k, or --dry-run"
             )
-        return aggregate() if args.aggregate else aggregate_sampling_strength()
+        if args.aggregate:
+            return aggregate()
+        return aggregate_sampling_strength(
+            token_length_limit=args.aggregate_strength_lengthfix
+        )
     if args.kappa is None:
         parser.error("kappa is required unless an aggregation mode is used")
     return run_condition(
@@ -380,6 +445,7 @@ def main(argv=None):
         temperature=args.temperature,
         top_p=args.top_p,
         top_k=args.top_k,
+        token_length_limit=args.token_length_limit,
     )
 
 

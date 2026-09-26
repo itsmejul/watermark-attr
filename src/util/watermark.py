@@ -1,6 +1,7 @@
 import os
 import sys
 sys.stdout.reconfigure(line_buffering=True)
+import math
 import time
 import gc
 from typing import List, Literal, Optional, Tuple
@@ -31,6 +32,26 @@ PROMPT = (
 )
 PRE_PARAPHRASED = "Here is a paraphrased version of the text while preserving the semantic similarity:\n\n"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+
+def paraphrase_max_new_tokens(text, paraphrasing_prompt, tokenizer, config):
+    """Resolve the generation limit without counting chat-template characters.
+
+    New experiments opt into a source-token-relative limit with
+    ``max_new_tokens_ratio_watermark``.  The legacy prompt-character behavior
+    remains available for existing resumable corpora whose configs do not have
+    that key, preventing a partial corpus from mixing generation policies.
+    """
+    ratio = config.get("max_new_tokens_ratio_watermark")
+    if ratio is None:
+        return max(1, int(len(paraphrasing_prompt) * 1.5))
+
+    ratio = float(ratio)
+    if not math.isfinite(ratio) or ratio <= 0:
+        raise ValueError("max_new_tokens_ratio_watermark must be positive")
+    source_token_ids = tokenizer.encode(text, add_special_tokens=False)
+    source_token_count = max(1, len(source_token_ids))
+    return max(1, math.ceil(source_token_count * ratio))
 
 def STS_scorer_batch(
     original_texts: List[str],
@@ -690,12 +711,15 @@ def watermark(
             add_generation_prompt=True,
             **chat_template_kwargs,
         ) + PRE_PARAPHRASED
+        max_new_tokens = paraphrase_max_new_tokens(
+            text, paraphrasing_prompt, tokenizer, config
+        )
     
-        if do_sample: # sampling   
+        if do_sample: # sampling
             watermarked = watermarker.generate(
                 paraphrasing_prompt,
                 return_scores=multiple_versions,
-                max_new_tokens=int(len(paraphrasing_prompt) * 1.5),
+                max_new_tokens=max_new_tokens,
                 do_sample=True,
                 temperature=temperature,
                 top_k=top_k,
@@ -711,7 +735,7 @@ def watermark(
             watermarked = watermarker.generate(
                 paraphrasing_prompt,
                 return_scores = True,
-                max_new_tokens = int(len(paraphrasing_prompt) * 1.5),# if max_new_tokens is None else max_new_tokens,
+                max_new_tokens=max_new_tokens,
                 do_sample = False, 
                 temperature=None, 
                 top_p=None,

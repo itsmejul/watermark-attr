@@ -129,6 +129,40 @@ class QwenKappaAblationTests(unittest.TestCase):
                     )
                     self.assertIsNone(result)
 
+    def test_token_length_limit_has_explicit_config_and_isolated_path(self):
+        base = {
+            "watermark_model": "Qwen/Qwen3.5-9B",
+            "kappa": 6.0,
+            "temperature_watermark": 0.5,
+            "top_p_watermark": 0.9,
+            "top_k_watermark": 50,
+        }
+        with patch.object(ablation, "_load_json", return_value=base):
+            config = ablation._condition_config(
+                6,
+                temperature=1.0,
+                top_p=1.0,
+                top_k=0,
+                token_length_limit=True,
+            )
+        self.assertEqual(
+            config["max_new_tokens_ratio_watermark"],
+            ablation.MAX_NEW_TOKENS_RATIO,
+        )
+        self.assertEqual(
+            ablation._output_path(
+                6,
+                temperature=1.0,
+                top_p=1.0,
+                top_k=0,
+                token_length_limit=True,
+            ),
+            Path(
+                "results/ablations/qwen_sampling_source_lengthfix/"
+                "kappa_6__temperature_1__top_p_1__top_k_0"
+            ),
+        )
+
     def test_write_or_validate_rejects_changed_condition(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

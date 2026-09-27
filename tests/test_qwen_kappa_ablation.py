@@ -163,6 +163,44 @@ class QwenKappaAblationTests(unittest.TestCase):
             ),
         )
 
+    def test_interpolation_kappas_are_supported_and_have_distinct_paths(self):
+        base = {
+            "watermark_model": "Qwen/Qwen3.5-9B",
+            "kappa": 6.0,
+            "temperature_watermark": 0.5,
+            "top_p_watermark": 0.9,
+            "top_k_watermark": 50,
+        }
+        with patch.object(ablation, "_load_json", return_value=base), patch.object(
+            ablation,
+            "_condition_data",
+            return_value=(["text"] * 100, [1] * 100, list(range(1, 101))),
+        ):
+            for kappa, slug in ((3.0, "3"), (3.5, "3.5")):
+                with self.subTest(kappa=kappa):
+                    result = ablation.run_condition(
+                        kappa,
+                        dry_run=True,
+                        temperature=1.0,
+                        top_p=1.0,
+                        top_k=0,
+                        token_length_limit=True,
+                    )
+                    self.assertIsNone(result)
+                    self.assertEqual(
+                        ablation._output_path(
+                            kappa,
+                            temperature=1.0,
+                            top_p=1.0,
+                            top_k=0,
+                            token_length_limit=True,
+                        ),
+                        Path(
+                            "results/ablations/qwen_sampling_source_lengthfix/"
+                            f"kappa_{slug}__temperature_1__top_p_1__top_k_0"
+                        ),
+                    )
+
     def test_write_or_validate_rejects_changed_condition(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

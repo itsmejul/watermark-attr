@@ -27,7 +27,10 @@ from src.util.filereader import REPO_ROOT, load_abstracts, write_path_file_atomi
 
 KAPPAS = (6, 10, 14)
 SAMPLING_STRENGTH_KAPPAS = (2, 4, 6, 8, 10, 12)
-SUPPORTED_KAPPAS = tuple(sorted(set(KAPPAS) | set(SAMPLING_STRENGTH_KAPPAS)))
+INTERPOLATION_KAPPAS = (3.0, 3.5)
+SUPPORTED_KAPPAS = tuple(
+    sorted(set(KAPPAS) | set(SAMPLING_STRENGTH_KAPPAS) | set(INTERPOLATION_KAPPAS))
+)
 N_SAMPLES = 100
 GENERATION_SEED = 20260920
 OUTPUT_ROOT = Path("results/ablations/qwen_kappa_source")
@@ -60,7 +63,7 @@ def _temperature_slug(temperature: float) -> str:
 
 
 def _output_path(
-    kappa: int,
+    kappa: float,
     temperature: float | None = None,
     top_p: float | None = None,
     top_k: int | None = None,
@@ -89,7 +92,7 @@ def _output_path(
 
 
 def _condition_config(
-    kappa: int,
+    kappa: float,
     temperature: float | None = None,
     top_p: float | None = None,
     top_k: int | None = None,
@@ -181,7 +184,7 @@ def summarize_verification(verification: dict) -> dict:
 
 
 def run_condition(
-    kappa: int,
+    kappa: float,
     dry_run: bool = False,
     temperature: float | None = None,
     top_p: float | None = None,
@@ -355,7 +358,7 @@ def aggregate_sampling_strength(token_length_limit: bool = False) -> list[dict]:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("kappa", nargs="?", type=int, choices=SUPPORTED_KAPPAS)
+    parser.add_argument("kappa", nargs="?", type=float, choices=SUPPORTED_KAPPAS)
     parser.add_argument(
         "--temperature",
         type=float,

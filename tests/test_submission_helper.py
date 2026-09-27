@@ -7,6 +7,51 @@ import unittest
 
 
 class SubmissionTests(unittest.TestCase):
+    def test_qwen_kappa4_corpus_helper_submits_thirteen_isolated_batches(self):
+        repo = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "data").mkdir()
+            config_name = "watermark_config_qwen3_5_9b_kappa4_lengthfix.json"
+            (root / "data" / config_name).write_text("{}")
+            (root / "data/keys.json").write_text("{}")
+            submit_script = str(
+                repo / "scripts/submit_qwen_kappa4_lengthfix_corpus.sh"
+            )
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            sbatch = bin_dir / "sbatch"
+            sbatch.write_text(
+                '#!/bin/bash\nprintf "%s\\n" "$*" >> "$SUBMISSION_TEST_LOG"\n'
+            )
+            sbatch.chmod(0o755)
+            log = root / "jobs.txt"
+            env = {
+                **os.environ,
+                "SUBMISSION_TEST_LOG": str(log),
+                "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+            }
+            subprocess.run(
+                ["bash", submit_script, "capella"],
+                cwd=root,
+                env=env,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            jobs = log.read_text().splitlines()
+            self.assertEqual(len(jobs), 13)
+            for batch in range(1, 14):
+                self.assertEqual(
+                    sum(
+                        f"src.data_creation.create_t_ws {batch} --config "
+                        f"data/{config_name}" in job
+                        for job in jobs
+                    ),
+                    1,
+                )
+            self.assertTrue(all("qwen-wm-k4-b" in job for job in jobs))
+
     def test_qwen_lengthfix_helper_submits_six_isolated_conditions(self):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:

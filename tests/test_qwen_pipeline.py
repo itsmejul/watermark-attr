@@ -24,6 +24,10 @@ class PipelineTests(unittest.TestCase):
             "combined_count": 64000, "config_sha256": "hash", "keys_sha256": "hash",
             "watermark_model": "Qwen/Qwen3.5-9B",
         })
+        self.write(["data/t_ws_qwen3_5_9b_kappa4_lengthfix"], "combined_manifest.json", {
+            "combined_count": 64000, "config_sha256": "hash", "keys_sha256": "hash",
+            "watermark_model": "Qwen/Qwen3.5-9B",
+        })
         self.write(["data/prompts_qwen3_5_9b"], "prefix_10_unwatermarked.json", ["prefix"] * 64000)
         for p in ("prefix_10", "titles_1", "titles_2", "titles_3", "questions"):
             directory = "data/prompts_qwen3_5_9b" if p == "prefix_10" else "data/prompts"
@@ -147,6 +151,23 @@ class PipelineTests(unittest.TestCase):
         manifest = json.loads((self.root / "lora_adapters/qwen_on_llama/smoke/abstracts_only/10/32/run_manifest.json").read_text())
         self.assertEqual(manifest["profile"], "qwen_on_llama")
         self.assertEqual(manifest["detector_model"], "meta-llama/Llama-3.1-8B-Instruct")
+
+    def test_kappa4_lengthfix_run_uses_separate_qwen_on_qwen_paths(self):
+        self.run_pipeline(watermark_source="qwen_kappa4_lengthfix")
+        path, adapter, _ = self.calls["ask"][0]
+        self.assertEqual(path[1], "experiment1-qwen-kappa4-lengthfix-smoke")
+        self.assertEqual(
+            adapter[:3], ["lora_adapters", "qwen_kappa4_lengthfix", "smoke"]
+        )
+        self.assertFalse(self.calls["verify"][0][2]["legacy_fourier"])
+        manifest_path = (
+            self.root
+            / "lora_adapters/qwen_kappa4_lengthfix/smoke/abstracts_only/10/32/run_manifest.json"
+        )
+        manifest = json.loads(manifest_path.read_text())
+        self.assertEqual(manifest["profile"], "qwen_kappa4_lengthfix")
+        self.assertEqual(manifest["watermark_source"], "qwen_kappa4_lengthfix")
+        self.assertEqual(manifest["detector_model"], "Qwen/Qwen3.5-9B")
 
     def test_batch64_variant_uses_its_own_roots(self):
         self.run_pipeline(watermark_source="llama", batch_size="64",

@@ -121,8 +121,8 @@ def parse_args(mode, argv=None):
 
 def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_variant=None):
     args = parse_args(mode, argv)
-    profile = ExperimentProfile("qwen")
-    if watermark_source not in ("qwen", "llama"):
+    training_profile = ExperimentProfile("qwen")
+    if watermark_source not in ("qwen", "qwen_kappa4_lengthfix", "llama"):
         raise ValueError(f"Unknown watermark source: {watermark_source}")
     cross_model = watermark_source == "llama"
     if experiment_variant not in (None, "batch64"):
@@ -135,7 +135,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
         raise ValueError("The Qwen-on-Llama pipeline only supports Llama-watermarked training data.")
     source_profile = ExperimentProfile(watermark_source)
     unwm = mode == "unwatermarked" or args.unwatermarked
-    config = profile.train_config(args.sample_type)
+    config = training_profile.train_config(args.sample_type)
     config["batch_size"] = args.batch_size
     config["n_samples"] = args.n_samples
     for attr, key in (("micro_batch_size", "micro_batch_size"), ("inference_batch_size", "inference_batch_size")):
@@ -149,11 +149,11 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
         config.update(epochs=1, save_every_n_epochs=1)
     cross_model_name = "qwen_on_llama" + (f"_{experiment_variant}" if experiment_variant else "")
     adapter = ((["lora_adapters", cross_model_name, args.sample_type]
-                if cross_model else profile.adapter_root(args.sample_type, unwm))
+                if cross_model else source_profile.adapter_root(args.sample_type, unwm))
                + [str(args.n_samples), str(args.batch_size)])
     result_dir = (f"experiment{SAMPLE_TYPES.index(args.sample_type) + 1}-qwen-on-llama"
                   + (f"-{experiment_variant}" if experiment_variant else "")
-                  if cross_model else profile.experiment_dir(args.sample_type))
+                  if cross_model else source_profile.experiment_dir(args.sample_type))
     if args.smoke:
         adapter.insert(2, "smoke")
         result_dir += "-smoke"
@@ -162,7 +162,8 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     generation = load_path_file(["data"], "generation_config.json") | config | source_profile.watermark_config
     generation["batch_size"] = args.batch_size  # watermark batch_size is corpus sharding, not training
     subset_kwargs = source_profile.subset_kwargs(unwm)
-    resolved_mode = f"{cross_model_name}_{mode}" if cross_model else mode
+    resolved_mode = (f"{cross_model_name}_{mode}" if cross_model else
+                     mode if watermark_source == "qwen" else f"{watermark_source}_{mode}")
     print(json.dumps(dict(mode=resolved_mode, adapters="/".join(adapter), results=f"results/{result_dir}",
                           subset=subset_kwargs, detector_model=source_profile.model, train=config,
                           generation={k: generation[k] for k in ("do_sample", "temperature", "top_p", "max_response_tokens")}), indent=2))
@@ -172,7 +173,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     # in Qwen's directory. Preflight never writes or imports ML libraries.
     if unwm and not args.preflight:
         from unsloth import FastLanguageModel  # patch before any transformers import
-        prepare_unwatermarked_prefixes(profile)
+        prepare_unwatermarked_prefixes(source_profile)
     subset = load_subset(n=args.n_samples, **subset_kwargs)
     heldout = load_held_out_set(**subset_kwargs)
     if set(subset["k_ps"]) & set(heldout["k_ps"]):
@@ -180,13 +181,13 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     if len(set(subset["ids"])) != 1:
         raise ValueError("This experiment expects one shared Waterfall ID")
     if not cross_model:
-        manifest_path = REPO_ROOT / profile.corpus_dir / "combined_manifest.json"
+        manifest_path = REPO_ROOT / source_profile.corpus_dir / "combined_manifest.json"
         if not manifest_path.is_file() or json.loads(manifest_path.read_text())["combined_count"] != 64000:
             raise ValueError("Combine all 13 complete Qwen watermark batches before running experiments.")
         corpus_manifest = json.loads(manifest_path.read_text())
-        if (corpus_manifest["config_sha256"] != sha256(REPO_ROOT / profile.watermark_config_path)
+        if (corpus_manifest["config_sha256"] != sha256(REPO_ROOT / source_profile.watermark_config_path)
                 or corpus_manifest["keys_sha256"] != sha256(REPO_ROOT / "data/keys.json")
-                or corpus_manifest["watermark_model"] != profile.model):
+                or corpus_manifest["watermark_model"] != source_profile.model):
             raise ValueError("Combined corpus manifest does not match the Qwen config/keys")
     required = [*subset_kwargs.values(), "data/seeded_dataset.jsonl",
                 *[f"data/prompts/{p}.json" for p in ("titles_1", "titles_2", "titles_3", "questions")]]
@@ -205,7 +206,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     if args.preflight:
         print("Preflight passed: aligned corpus, prompts, keys, held-out split and required open prompts.")
         return
-    profile.check_waterfall()
+    training_profile.check_waterfall()
     if version("transformers") != "5.5.0":
         raise RuntimeError("Use requirements-qwen-experiments.txt in .venv-qwen-experiments, not the watermark environment.")
     from unsloth import FastLanguageModel  # must precede transformers and watermark imports
@@ -214,11 +215,11 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     from src.util.llm import ask_batched
     from src.util.watermark import init_watermarker, verify_watermarks_full, verify_watermarks_open_keyspace
 
-    tokenizer = AutoTokenizer.from_pretrained(profile.model)
+    tokenizer = AutoTokenizer.from_pretrained(training_profile.model)
     fingerprints = {p: sha256(REPO_ROOT / p) for p in sorted(set(required))}
     training_fingerprints = {p: v for p, v in fingerprints.items() if not p.endswith("_open.json")}
     versions = {p: version(p) for p in ("unsloth", "unsloth-zoo", "transformers", "waterfall", "torch", "peft")}
-    manifest = dict(profile=cross_model_name if cross_model else "qwen",
+    manifest = dict(profile=cross_model_name if cross_model else source_profile.name,
                     watermark_source=watermark_source, detector_model=source_profile.model,
                     legacy_fourier=cross_model, config=config, n_samples=args.n_samples, unwatermarked=unwm,
                     inputs=training_fingerprints, versions=versions, subset_seed=48)

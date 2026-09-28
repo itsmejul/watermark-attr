@@ -14,22 +14,30 @@ PROMPT_TYPES = {
     "questions": ("train_questions", "held_out_questions"),
 }
 
+PROFILE_NAMES = (
+    "llama",
+    "llama_eosfix",
+    "qwen",
+    "qwen_kappa4_lengthfix",
+    "qwen_on_llama",
+)
+
 
 @dataclass(frozen=True)
 class ExperimentProfile:
     name: str = "llama"
 
     def __post_init__(self):
-        if self.name not in ("llama", "llama_eosfix", "qwen", "qwen_on_llama"):
+        if self.name not in PROFILE_NAMES:
             raise ValueError(f"Unknown profile: {self.name}")
 
     @property
     def is_qwen_trained(self):
-        return self.name in ("qwen", "qwen_on_llama")
+        return self.name in ("qwen", "qwen_kappa4_lengthfix", "qwen_on_llama")
 
     @property
     def uses_50000_grid(self):
-        return self.name in ("llama_eosfix", "qwen", "qwen_on_llama")
+        return self.name in ("llama_eosfix", "qwen", "qwen_kappa4_lengthfix", "qwen_on_llama")
 
     @property
     def suffix(self):
@@ -37,20 +45,30 @@ class ExperimentProfile:
             "llama": "",
             "llama_eosfix": "-llamaeosfix",
             "qwen": "-qwen",
+            "qwen_kappa4_lengthfix": "-qwen-kappa4-lengthfix",
             "qwen_on_llama": "-qwen-on-llama",
         }[self.name]
 
     @property
     def corpus_dir(self):
-        return "data/t_ws_qwen3_5_9b" if self.name == "qwen" else "data/t_ws"
+        return {
+            "qwen": "data/t_ws_qwen3_5_9b",
+            "qwen_kappa4_lengthfix": "data/t_ws_qwen3_5_9b_kappa4_lengthfix",
+        }.get(self.name, "data/t_ws")
 
     @property
     def prompts_dir(self):
-        return "data/prompts_qwen3_5_9b" if self.name == "qwen" else "data/prompts"
+        return {
+            "qwen": "data/prompts_qwen3_5_9b",
+            "qwen_kappa4_lengthfix": "data/prompts_qwen3_5_9b_kappa4_lengthfix",
+        }.get(self.name, "data/prompts")
 
     @property
     def watermark_config_path(self):
-        return "data/watermark_config_qwen3_5_9b.json" if self.name == "qwen" else "data/watermark_config.json"
+        return {
+            "qwen": "data/watermark_config_qwen3_5_9b.json",
+            "qwen_kappa4_lengthfix": "data/watermark_config_qwen3_5_9b_kappa4_lengthfix.json",
+        }.get(self.name, "data/watermark_config.json")
 
     @property
     def watermark_config(self):
@@ -79,6 +97,7 @@ class ExperimentProfile:
             "llama": [],
             "llama_eosfix": ["llamaeosfix"],
             "qwen": ["qwen"],
+            "qwen_kappa4_lengthfix": ["qwen_kappa4_lengthfix"],
             "qwen_on_llama": ["qwen_on_llama"],
         }[self.name]
         return ["lora_adapters", *namespace, name]
@@ -106,7 +125,7 @@ class ExperimentProfile:
 def add_profile_argument(parser):
     parser.add_argument(
         "--profile",
-        choices=("llama", "llama_eosfix", "qwen", "qwen_on_llama"),
+        choices=PROFILE_NAMES,
         default="llama",
     )
 
@@ -122,9 +141,10 @@ def dispatch_profile(mode):
     parser = argparse.ArgumentParser(add_help=False)
     add_profile_argument(parser)
     args, remaining = parser.parse_known_args()
-    if args.profile in ("qwen", "qwen_on_llama"):
+    if args.profile in ("qwen", "qwen_kappa4_lengthfix", "qwen_on_llama"):
         from src.experiments.main.qwen_pipeline import main
-        main(mode, remaining, watermark_source="llama" if args.profile == "qwen_on_llama" else "qwen")
+        watermark_source = "llama" if args.profile == "qwen_on_llama" else args.profile
+        main(mode, remaining, watermark_source=watermark_source)
         raise SystemExit(0)
     if args.profile == "llama_eosfix" and mode == "watermarked":
         remaining.append("--eos-fix")

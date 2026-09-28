@@ -78,6 +78,44 @@ class ProfileTests(unittest.TestCase):
                 ])
         self.assertEqual(len(roots), 18)
 
+    def test_kappa4_lengthfix_grid_uses_new_corpus_prompts_and_outputs(self):
+        p = ExperimentProfile("qwen_kappa4_lengthfix")
+        roots = set()
+        for sample_type in SAMPLE_TYPES:
+            for n in QWEN_SIZES:
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    pipeline.main(
+                        "watermarked",
+                        [str(n), sample_type, "32", "1000", "--dry-run"],
+                        watermark_source="qwen_kappa4_lengthfix",
+                    )
+                resolved = json.loads(output.getvalue())
+                roots.add(resolved["adapters"])
+                self.assertEqual(
+                    resolved["adapters"],
+                    f"lora_adapters/qwen_kappa4_lengthfix/{sample_type}/{n}/32",
+                )
+                self.assertEqual(
+                    resolved["results"],
+                    f"results/experiment{SAMPLE_TYPES.index(sample_type) + 1}-qwen-kappa4-lengthfix",
+                )
+                self.assertIn(
+                    "data/t_ws_qwen3_5_9b_kappa4_lengthfix/combined_t_ws.json",
+                    resolved["subset"]["texts_path"],
+                )
+                self.assertIn(
+                    "data/prompts_qwen3_5_9b_kappa4_lengthfix/prefix_10.json",
+                    resolved["subset"]["prompts_path"],
+                )
+                self.assertEqual(resolved["train"]["epochs"], 100)
+                self.assertEqual(resolved["train"]["batch_size"], 32)
+        self.assertEqual(len(roots), 18)
+        self.assertEqual(p.watermark_config["kappa"], 4.0)
+        self.assertEqual(p.watermark_config["top_p_watermark"], 1.0)
+        self.assertEqual(p.watermark_config["top_k_watermark"], 0)
+        self.assertEqual(p.watermark_config["max_new_tokens_ratio_watermark"], 1.5)
+
     def test_qwen_on_llama_arm_uses_cross_model_inputs_and_isolated_outputs(self):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):

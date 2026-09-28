@@ -266,6 +266,59 @@ class SubmissionTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(len(log.read_text().splitlines()), 18)
 
+    def test_kappa4_lengthfix_helper_submits_18_independent_isolated_jobs(self):
+        repo = Path(__file__).resolve().parents[1]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "data/t_ws_qwen3_5_9b_kappa4_lengthfix").mkdir(parents=True)
+            (root / "data/prompts_qwen3_5_9b_kappa4_lengthfix").mkdir(parents=True)
+            (root / "data/experiment_config_qwen.json").write_text("{}")
+            (root / "data/t_ws_qwen3_5_9b_kappa4_lengthfix/combined_t_ws.json").write_text("[]")
+            (root / "data/t_ws_qwen3_5_9b_kappa4_lengthfix/combined_manifest.json").write_text("{}")
+            (root / "data/prompts_qwen3_5_9b_kappa4_lengthfix/prefix_10.json").write_text("[]")
+            submit_script = str(
+                repo / "scripts/submit_qwen_kappa4_lengthfix_experiments.sh"
+            )
+            bin_dir = root / "bin"
+            bin_dir.mkdir()
+            python = bin_dir / "python"
+            python.write_text("#!/bin/bash\nexit 0\n")
+            python.chmod(0o755)
+            sbatch = bin_dir / "sbatch"
+            sbatch.write_text(
+                '#!/bin/bash\nprintf "%s\\n" "$*" >> "$SUBMISSION_TEST_LOG"\n'
+            )
+            sbatch.chmod(0o755)
+            log = root / "jobs.txt"
+            env = {
+                **os.environ,
+                "QWEN_VENV_DIR": str(root),
+                "SUBMISSION_TEST_LOG": str(log),
+                "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
+            }
+            subprocess.run(
+                ["bash", submit_script, "capella", "--resume"],
+                cwd=root,
+                env=env,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            jobs = log.read_text().splitlines()
+            self.assertEqual(len(jobs), 18)
+            self.assertEqual(len(set(jobs)), 18)
+            for sample_type in (
+                "abstracts_only",
+                "abstracts_and_titles",
+                "questions",
+            ):
+                for n in (100, 500, 1000, 5000, 10000, 50000):
+                    expected = (
+                        f"full_pipeline {n} {sample_type} 32 1000 "
+                        "--profile qwen_kappa4_lengthfix --resume"
+                    )
+                    self.assertEqual(sum(expected in line for line in jobs), 1)
+
     def test_batch64_helper_submits_isolated_matrix_with_fixed_microbatches(self):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:

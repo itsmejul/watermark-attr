@@ -9,7 +9,7 @@ class QwenCorpusConfigTests(unittest.TestCase):
         config = json.loads(
             (
                 repo
-                / "data/watermark_config_qwen3_5_9b_kappa4_lengthfix.json"
+                / "data/t_ws/config_qwen.json"
             ).read_text()
         )
         self.assertEqual(config["n_samples"], 64000)
@@ -23,9 +23,8 @@ class QwenCorpusConfigTests(unittest.TestCase):
         self.assertEqual(config["keys_file"], "data/keys.json")
         self.assertEqual(
             config["output_dir"],
-            "data/t_ws_qwen3_5_9b_kappa4_lengthfix",
+            "data/t_ws/qwen",
         )
-        self.assertNotEqual(config["output_dir"], "data/t_ws_qwen3_5_9b")
 
 
 if __name__ == "__main__":

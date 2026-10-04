@@ -11,14 +11,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def convert(notebook):
     notebook["metadata"]["kernelspec"] = {
-        "display_name": "Qwen experiments", "language": "python", "name": "watermark-qwen",
+        "display_name": ".venv-experiment", "language": "python", "name": "watermark-experiment",
     }
     replacements = {
         "../../results/experiment1": "../../results/experiment1-qwen",
         "../../results/experiment2": "../../results/experiment2-qwen",
         "../../results/experiment3": "../../results/experiment3-qwen",
         "../../lora_adapters/": "../../lora_adapters/qwen/",
-        "../../data/t_ws/": "../../data/t_ws_qwen3_5_9b/",
+        "../../data/t_ws/llama/": "../../data/t_ws/qwen/",
+        "../../data/prompts/llama/": "../../data/prompts/qwen/",
         "../../thesis/figures/results/": "../../thesis/figures/results/qwen/",
         "meta-llama/Llama-3.1-8B-Instruct": "Qwen/Qwen3.5-9B",
         "63800": "50000",

@@ -154,7 +154,7 @@ def main(argv=None):
                 or corpus_manifest["watermark_model"] != source_profile.model):
             raise ValueError("Combined corpus manifest does not match the Qwen config/keys")
     required = [*subset_kwargs.values(), "data/seeded_dataset.jsonl",
-                *[f"data/prompts/{name}.json" for name in
+                *[f"data/prompts/shared/{name}.json" for name in
                   ("titles_1", "titles_2", "titles_3", "questions")]]
     if args.preflight:
         print("Preflight passed: aligned corpus, prompts, keys, held-out split, and source routing.")
@@ -162,7 +162,7 @@ def main(argv=None):
 
     training_profile.check_waterfall()
     if version("transformers") != "5.5.0":
-        raise RuntimeError("Use requirements-qwen-experiments.txt in .venv-qwen-experiments.")
+        raise RuntimeError("Use req-experiment.txt in .venv-experiment.")
     from unsloth import FastLanguageModel  # noqa: F401 - patch before Transformers imports
     from transformers import AutoTokenizer
     from src.util.full_finetune import full_finetune

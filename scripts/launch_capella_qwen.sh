@@ -18,7 +18,7 @@ set -Eeuo pipefail
 
 usage() {
     echo "Usage: sbatch $0 <python-module-path> [arguments ...]" >&2
-    echo "Example: sbatch $0 src.data_creation.create_t_ws 1 --config data/watermark_config_qwen3_5_9b.json" >&2
+    echo "Example: sbatch $0 src.data_creation.create_t_ws 1 --config data/t_ws/config_qwen.json" >&2
 }
 
 if [[ $# -lt 1 ]]; then
@@ -32,10 +32,10 @@ shift
 # Submit from the repository root. This avoids hard-coding whether the checkout
 # directory on Capella is named cllm-waterfall or watermark-attr.
 readonly PROJECT_DIR="${SLURM_SUBMIT_DIR}"
-readonly VENV_DIR="${QWEN_VENV_DIR:-${PROJECT_DIR}/.venv-qwen}"
+readonly VENV_DIR="${RUN_VENV_DIR:-${PROJECT_DIR}/.venv-watermark}"
 readonly LOG_DIR="${PROJECT_DIR}/logs"
 
-if [[ ! -f "${PROJECT_DIR}/data/watermark_config_qwen3_5_9b.json" ]]; then
+if [[ ! -f "${PROJECT_DIR}/data/t_ws/config_qwen.json" ]]; then
     echo "Submit this script from the qwen-horeka-experiments repository root." >&2
     echo "SLURM_SUBMIT_DIR=${PROJECT_DIR}" >&2
     exit 1
@@ -45,8 +45,8 @@ module purge
 module load release/24.04 GCCcore/13.3.0 Python/3.12.3
 
 if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
-    echo "Qwen environment not found: ${VENV_DIR}" >&2
-    echo "Create it once from requirements-qwen-watermark.txt before submitting." >&2
+    echo "Runtime environment not found: ${VENV_DIR}" >&2
+    echo "Create it once from req-watermark.txt before submitting." >&2
     exit 1
 fi
 

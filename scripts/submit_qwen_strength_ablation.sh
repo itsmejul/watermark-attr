@@ -13,17 +13,17 @@ case "$1" in
     *) echo "Unknown cluster: $1" >&2; exit 64 ;;
 esac
 
-if [[ ! -f data/watermark_config_qwen3_5_9b.json || ! -f data/keys.json ]]; then
+if [[ ! -f data/t_ws/config_qwen.json || ! -f data/keys.json ]]; then
     echo "Run this helper from the repository root." >&2
     exit 1
 fi
 
-export QWEN_VENV_DIR="${QWEN_VENV_DIR:-${PWD}/.venv-qwen}"
-if [[ ! -x "${QWEN_VENV_DIR}/bin/python" ]]; then
-    echo "Missing Qwen watermark environment: ${QWEN_VENV_DIR}" >&2
+export RUN_VENV_DIR="${RUN_VENV_DIR:-${PWD}/.venv-watermark}"
+if [[ ! -x "${RUN_VENV_DIR}/bin/python" ]]; then
+    echo "Missing watermark environment: ${RUN_VENV_DIR}" >&2
     exit 1
 fi
-if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
+if ! "${RUN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
     if [[ "$1" == "capella" ]]; then
         if ! type module >/dev/null 2>&1; then
             # shellcheck disable=SC1091
@@ -33,8 +33,8 @@ if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
         module load release/24.04 GCCcore/13.3.0 Python/3.12.3
     fi
 fi
-if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
-    echo "The Qwen-environment Python cannot start: ${QWEN_VENV_DIR}/bin/python" >&2
+if ! "${RUN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
+    echo "The runtime environment Python cannot start: ${RUN_VENV_DIR}/bin/python" >&2
     exit 1
 fi
 
@@ -44,7 +44,7 @@ kappas=(2 4 6 8 10 12)
 
 for kappa in "${kappas[@]}"; do
     result_dir="results/ablations/qwen_sampling_source/kappa_${kappa}__temperature_1__top_p_1__top_k_0"
-    "${QWEN_VENV_DIR}/bin/python" -m "$module_name" "$kappa" \
+    "${RUN_VENV_DIR}/bin/python" -m "$module_name" "$kappa" \
         --temperature 1.0 --top-p 1.0 --top-k 0 --dry-run >/dev/null
     if [[ -f "${result_dir}/summary.json" ]]; then
         echo "Kappa ${kappa} is already complete; not submitting it again."

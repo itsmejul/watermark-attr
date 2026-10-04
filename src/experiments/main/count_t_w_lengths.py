@@ -1,5 +1,5 @@
 """Count the token length of every watermarked text and save the list to
-data/t_ws/token_lengths.json.
+data/t_ws/llama/token_lengths.json.
 
 Usage:
     python -m src.experiments.main.count_t_w_lengths

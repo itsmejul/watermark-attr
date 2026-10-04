@@ -5,7 +5,7 @@ Metrics (select with --metrics):
   cosine    sentence embedding cosine similarity (all-mpnet-base-v2)
   bertscore BERTScore precision/recall/F1 (roberta-large)
   bigram    token bigram overlap with the watermarked target (Rouge2)
-            (requires data/t_ws/bigrams.npz, see compute_t_w_bigrams.py)
+            (requires data/t_ws/llama/bigrams.npz, see compute_t_w_bigrams.py)
   lcs       longest common substring, normalized by target length
 
 Usage:
@@ -65,7 +65,7 @@ TOKENIZE_BATCH = 256
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RESULTS_ROOT = REPO_ROOT / "results"
-BIGRAMS_NPZ = REPO_ROOT / "data" / "t_ws" / "bigrams.npz"
+BIGRAMS_NPZ = REPO_ROOT / "data" / "t_ws" / "llama" / "bigrams.npz"
 
 METRICS = ("bm25", "cosine", "bertscore", "bigram", "lcs")
 PAIRWISE_METRICS = ("cosine", "bertscore", "lcs")
@@ -95,7 +95,7 @@ PER_SAMPLE_KEYS = {
 
 UNWM_VARIANT = "prefix_10_unwatermarked"
 UNWM_EXPERIMENT_DIR = "experiment1"
-UNWM_PROMPTS_PATH = "data/prompts/prefix_10_unwatermarked.json"
+UNWM_PROMPTS_PATH = "data/prompts/llama/prefix_10_unwatermarked.json"
 
 
 def configure_profile(name):

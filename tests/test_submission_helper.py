@@ -11,12 +11,12 @@ class SubmissionTests(unittest.TestCase):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "data").mkdir()
-            config_name = "watermark_config_qwen3_5_9b_kappa4_lengthfix.json"
-            (root / "data" / config_name).write_text("{}")
+            (root / "data/t_ws").mkdir(parents=True)
+            config_name = "data/t_ws/config_qwen.json"
+            (root / config_name).write_text("{}")
             (root / "data/keys.json").write_text("{}")
             submit_script = str(
-                repo / "scripts/submit_qwen_kappa4_lengthfix_corpus.sh"
+                repo / "scripts/submit_qwen_corpus.sh"
             )
             bin_dir = root / "bin"
             bin_dir.mkdir()
@@ -44,8 +44,8 @@ class SubmissionTests(unittest.TestCase):
             for batch in range(1, 14):
                 self.assertEqual(
                     sum(
-                        f"src.data_creation.create_t_ws {batch} --config "
-                        f"data/{config_name}" in job
+                        f"src.data_creation.create_t_ws {batch} --config {config_name}"
+                        in job
                         for job in jobs
                     ),
                     1,
@@ -56,8 +56,8 @@ class SubmissionTests(unittest.TestCase):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "data").mkdir()
-            (root / "data/watermark_config_qwen3_5_9b.json").write_text("{}")
+            (root / "data/t_ws").mkdir(parents=True)
+            (root / "data/t_ws/config_qwen.json").write_text("{}")
             (root / "data/keys.json").write_text("{}")
             submit_script = str(
                 repo / "scripts/submit_qwen_strength_lengthfix_ablation.sh"
@@ -75,7 +75,7 @@ class SubmissionTests(unittest.TestCase):
             log = root / "jobs.txt"
             env = {
                 **os.environ,
-                "QWEN_VENV_DIR": str(root),
+                "RUN_VENV_DIR": str(root),
                 "SUBMISSION_TEST_LOG": str(log),
                 "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
             }
@@ -96,8 +96,8 @@ class SubmissionTests(unittest.TestCase):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "data").mkdir()
-            (root / "data/watermark_config_qwen3_5_9b.json").write_text("{}")
+            (root / "data/t_ws").mkdir(parents=True)
+            (root / "data/t_ws/config_qwen.json").write_text("{}")
             (root / "data/keys.json").write_text("{}")
             submit_script = str(repo / "scripts/submit_qwen_strength_ablation.sh")
             bin_dir = root / "bin"
@@ -111,7 +111,7 @@ class SubmissionTests(unittest.TestCase):
             )
             sbatch.chmod(0o755)
             log = root / "jobs.txt"
-            env = {**os.environ, "QWEN_VENV_DIR": str(root),
+            env = {**os.environ, "RUN_VENV_DIR": str(root),
                    "SUBMISSION_TEST_LOG": str(log),
                    "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"]}
             subprocess.run(["bash", submit_script, "capella"], cwd=root, env=env,
@@ -139,8 +139,8 @@ class SubmissionTests(unittest.TestCase):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "data/t_ws").mkdir(parents=True)
-            (root / "data/t_ws/combined_t_ws.json").write_text("[]")
+            (root / "data/t_ws/llama").mkdir(parents=True)
+            (root / "data/t_ws/llama/combined_t_ws.json").write_text("[]")
             submit_script = str(repo / "scripts/submit_llama_eosfix_additional_evals.sh")
             bin_dir = root / "bin"
             bin_dir.mkdir()
@@ -153,7 +153,7 @@ class SubmissionTests(unittest.TestCase):
             )
             sbatch.chmod(0o755)
             log = root / "jobs.txt"
-            env = {**os.environ, "QWEN_VENV_DIR": str(root),
+            env = {**os.environ, "RUN_VENV_DIR": str(root),
                    "SUBMISSION_TEST_LOG": str(log),
                    "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"]}
             subprocess.run(["bash", submit_script, "capella"], cwd=root, env=env,
@@ -174,9 +174,9 @@ class SubmissionTests(unittest.TestCase):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "data/t_ws").mkdir(parents=True)
-            (root / "data/watermark_config.json").write_text("{}")
-            (root / "data/t_ws/combined_t_ws.json").write_text("[]")
+            (root / "data/t_ws/llama").mkdir(parents=True)
+            (root / "data/t_ws/config_llama.json").write_text("{}")
+            (root / "data/t_ws/llama/combined_t_ws.json").write_text("[]")
             submit_script = str(repo / "scripts/submit_llama_eosfix_experiments.sh")
             bin_dir = root / "bin"
             bin_dir.mkdir()
@@ -187,7 +187,7 @@ class SubmissionTests(unittest.TestCase):
             sbatch.write_text('#!/bin/bash\nprintf "%s\\n" "$*" >> "$SUBMISSION_TEST_LOG"\n')
             sbatch.chmod(0o755)
             log = root / "jobs.txt"
-            env = {**os.environ, "QWEN_VENV_DIR": str(root),
+            env = {**os.environ, "RUN_VENV_DIR": str(root),
                    "SUBMISSION_TEST_LOG": str(log),
                    "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"]}
             subprocess.run(["bash", submit_script, "capella"], cwd=root, env=env,
@@ -205,9 +205,9 @@ class SubmissionTests(unittest.TestCase):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "data/t_ws").mkdir(parents=True)
+            (root / "data/t_ws/llama").mkdir(parents=True)
             (root / "data/experiment_config_qwen.json").write_text("{}")
-            (root / "data/t_ws/combined_t_ws.json").write_text("[]")
+            (root / "data/t_ws/llama/combined_t_ws.json").write_text("[]")
             submit_script = str(repo / "scripts/submit_qwen_on_llama_additional_evals.sh")
             bin_dir = root / "bin"
             bin_dir.mkdir()
@@ -218,7 +218,7 @@ class SubmissionTests(unittest.TestCase):
             sbatch.write_text('#!/bin/bash\nprintf "%s\\n" "$*" >> "$SUBMISSION_TEST_LOG"\n')
             sbatch.chmod(0o755)
             log = root / "jobs.txt"
-            env = {**os.environ, "QWEN_VENV_DIR": str(root), "SUBMISSION_TEST_LOG": str(log),
+            env = {**os.environ, "RUN_VENV_DIR": str(root), "SUBMISSION_TEST_LOG": str(log),
                    "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"]}
             subprocess.run(["bash", submit_script, "capella"], cwd=root, env=env,
                            check=True, capture_output=True, text=True)
@@ -238,8 +238,12 @@ class SubmissionTests(unittest.TestCase):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "data").mkdir()
+            (root / "data/t_ws/qwen").mkdir(parents=True)
+            (root / "data/prompts/qwen").mkdir(parents=True)
             (root / "data/experiment_config_qwen.json").write_text("{}")
+            (root / "data/t_ws/qwen/combined_t_ws.json").write_text("[]")
+            (root / "data/t_ws/qwen/combined_manifest.json").write_text("{}")
+            (root / "data/prompts/qwen/prefix_10.json").write_text("[]")
             submit_script = str(repo / "scripts/submit_qwen_experiments.sh")
             bin_dir = root / "bin"
             bin_dir.mkdir()
@@ -250,7 +254,7 @@ class SubmissionTests(unittest.TestCase):
             sbatch.write_text('#!/bin/bash\n[[ -d job_outputs ]] || exit 9\nprintf "%s\\n" "$*" >> "$SUBMISSION_TEST_LOG"\n')
             sbatch.chmod(0o755)
             log = root / "jobs.txt"
-            env = {**os.environ, "QWEN_VENV_DIR": str(root), "SUBMISSION_TEST_LOG": str(log),
+            env = {**os.environ, "RUN_VENV_DIR": str(root), "SUBMISSION_TEST_LOG": str(log),
                    "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"]}
             subprocess.run(["bash", submit_script, "capella", "--resume"],
                            cwd=root, env=env, check=True, capture_output=True, text=True)
@@ -270,14 +274,14 @@ class SubmissionTests(unittest.TestCase):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "data/t_ws_qwen3_5_9b_kappa4_lengthfix").mkdir(parents=True)
-            (root / "data/prompts_qwen3_5_9b_kappa4_lengthfix").mkdir(parents=True)
+            (root / "data/t_ws/qwen").mkdir(parents=True)
+            (root / "data/prompts/qwen").mkdir(parents=True)
             (root / "data/experiment_config_qwen.json").write_text("{}")
-            (root / "data/t_ws_qwen3_5_9b_kappa4_lengthfix/combined_t_ws.json").write_text("[]")
-            (root / "data/t_ws_qwen3_5_9b_kappa4_lengthfix/combined_manifest.json").write_text("{}")
-            (root / "data/prompts_qwen3_5_9b_kappa4_lengthfix/prefix_10.json").write_text("[]")
+            (root / "data/t_ws/qwen/combined_t_ws.json").write_text("[]")
+            (root / "data/t_ws/qwen/combined_manifest.json").write_text("{}")
+            (root / "data/prompts/qwen/prefix_10.json").write_text("[]")
             submit_script = str(
-                repo / "scripts/submit_qwen_kappa4_lengthfix_experiments.sh"
+                repo / "scripts/submit_qwen_experiments.sh"
             )
             bin_dir = root / "bin"
             bin_dir.mkdir()
@@ -292,7 +296,7 @@ class SubmissionTests(unittest.TestCase):
             log = root / "jobs.txt"
             env = {
                 **os.environ,
-                "QWEN_VENV_DIR": str(root),
+                "RUN_VENV_DIR": str(root),
                 "SUBMISSION_TEST_LOG": str(log),
                 "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"],
             }
@@ -315,7 +319,7 @@ class SubmissionTests(unittest.TestCase):
                 for n in (100, 500, 1000, 5000, 10000, 50000):
                     expected = (
                         f"full_pipeline {n} {sample_type} 32 1000 "
-                        "--profile qwen_kappa4_lengthfix --resume"
+                        "--profile qwen --resume"
                     )
                     self.assertEqual(sum(expected in line for line in jobs), 1)
 
@@ -323,9 +327,9 @@ class SubmissionTests(unittest.TestCase):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            (root / "data/t_ws").mkdir(parents=True)
+            (root / "data/t_ws/llama").mkdir(parents=True)
             (root / "data/experiment_config_qwen.json").write_text("{}")
-            (root / "data/t_ws/combined_t_ws.json").write_text("[]")
+            (root / "data/t_ws/llama/combined_t_ws.json").write_text("[]")
             submit_script = str(repo / "scripts/submit_qwen_on_llama_batch64_experiments.sh")
             bin_dir = root / "bin"
             bin_dir.mkdir()
@@ -336,7 +340,7 @@ class SubmissionTests(unittest.TestCase):
             sbatch.write_text('#!/bin/bash\nprintf "%s\\n" "$*" >> "$SUBMISSION_TEST_LOG"\n')
             sbatch.chmod(0o755)
             log = root / "jobs.txt"
-            env = {**os.environ, "QWEN_VENV_DIR": str(root), "SUBMISSION_TEST_LOG": str(log),
+            env = {**os.environ, "RUN_VENV_DIR": str(root), "SUBMISSION_TEST_LOG": str(log),
                    "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"]}
             subprocess.run(["bash", submit_script, "capella", "--resume"],
                            cwd=root, env=env, check=True, capture_output=True, text=True)

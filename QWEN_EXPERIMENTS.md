@@ -1,8 +1,8 @@
 # Qwen3.5-9B experiments
 
-Use `--profile qwen` on the existing main experiment commands. Omitting it
-retains the Llama arm; do not run Llama training/verification in the new environment.
-Neither `.venv` nor the running watermark environment `.venv-qwen` is modified.
+Use `--profile qwen` on the existing main experiment commands. The maintained
+Qwen pipelines and the Llama EOS-fix pipeline run in `.venv-experiment`; corpus
+generation and watermark ablations remain isolated in `.venv-watermark`.
 
 ## Full-parameter / continued-pretraining arm
 
@@ -58,14 +58,15 @@ also creates it. Existing jobs/logs are not moved; GPU utilization logs stay in 
   evaluation subsets (at most 1000), and open negatives at rows 64000–64999.
 - Training truncation: 300 tokens for experiment 1; 512 for experiments 2/3.
 - Greedy answer generation (`do_sample=false`, temperature 0, max 300 new tokens).
-  **Watermark generation** separately uses sampling/temperature 0.5/kappa 6/ngram 2.
+  **Watermark generation** separately uses sampling, temperature 1.0, kappa 4,
+  ngram 2, no top-k/top-p filtering, and a 1.5x source-token length cap.
 - Titles, perturbed titles, and questions are reused. Questions were generated
   from **original unwatermarked abstracts**, not Llama paraphrases.
 
 ## Deliberate differences and compatibility
 
-- Qwen watermarked targets: `data/t_ws_qwen3_5_9b/combined_t_ws.json`.
-- Qwen prefixes/control prefixes/open prefixes: `data/prompts_qwen3_5_9b/`.
+- Qwen watermarked targets: `data/t_ws/qwen/combined_t_ws.json`.
+- Qwen prefixes/control prefixes/open prefixes: `data/prompts/qwen/`.
 - Results: `results/experiment{1,2,3}-qwen/`; adapter root: `lora_adapters/qwen/`.
   Controls retain the `_unwatermarked` variant suffix inside those roots.
 - Qwen chat templates always receive `enable_thinking=False`. Experiment 1
@@ -90,13 +91,11 @@ also creates it. Existing jobs/logs are not moved; GPU utilization logs stay in 
   supervised even though Qwen uses its EOS token as padding. This, together
   with the 300-token generation cap, directly addresses the old 512-token
   runaway tails.
-- The EOS, generation-length, and LoRA-target changes produce a new run
-  configuration. Existing Qwen adapter/result directories should be archived
-  before starting fresh runs; do not use `--resume` across this change. Run
-  manifests deliberately reject mixing the old and new settings.
+- Run manifests pin the EOS, generation-length, LoRA-target, corpus, and prompt
+  settings and reject attempts to resume with incompatible inputs.
 - Published Unsloth **2026.9.5** requires Transformers **<=5.5.0**. Training uses
   **5.5.0**, Waterfall **0.3.4**, Torch **2.9.1**, and a resolved dependency lock.
-  Watermarking remains on Transformers **5.17.0** in `.venv-qwen`. Do not install
+  Watermarking remains on Transformers **5.17.0** in `.venv-watermark`. Do not install
   Unsloth into that environment or bypass its requirements with `--no-deps`.
 - The training stack explicitly keeps AdamW rather than inheriting newer Torch's
   changed fused-optimizer default. Transformers 5's renamed length-grouping
@@ -120,16 +119,16 @@ Sources: [Unsloth Qwen3.5 guide](https://unsloth.ai/docs/models/qwen3.5/fine-tun
 From the repository root, using the existing watermark environment:
 
 ```bash
-source .venv-qwen/bin/activate
-python -m src.data_creation.create_t_ws --config data/watermark_config_qwen3_5_9b.json --combine
+source .venv-watermark/bin/activate
+python -m src.data_creation.create_t_ws --config data/t_ws/config_qwen.json --combine
 python -m src.data_creation.create_prompt_dataset \
-  --profile data/prompt_config_qwen3_5_9b.json --tasks prefix --set both \
+  --profile data/prompts/config_qwen.json --tasks prefix --set both \
   --include-unwatermarked-prefix
 ```
 
 The combined corpus must contain all 64000 texts and its combined manifest.
 Copy `data/seeded_dataset.jsonl` (at least 65000 rows), `data/keys.json`, and the
-original `data/prompts/{titles_1,titles_2,titles_3,questions}.json` plus their
+original `data/prompts/shared/{titles_1,titles_2,titles_3,questions}.json` plus their
 `_open.json` counterparts to a cleaned checkout if absent. Prefix preparation
 validates reused files and **does not make OpenAI calls** with `--tasks prefix`.
 Do not regenerate titles/questions just because they are missing on the new host.
@@ -140,16 +139,16 @@ From the repository root. On Capella load the same modules as the launcher first
 
 ```bash
 module load release/24.04 GCCcore/13.3.0 Python/3.12.3  # Capella only
-.venv-qwen/bin/python -m venv .venv-qwen-experiments
-source .venv-qwen-experiments/bin/activate
-python -m pip install -r requirements-qwen-experiments.lock.txt
+.venv-watermark/bin/python -m venv .venv-experiment
+source .venv-experiment/bin/activate
+python -m pip install -r req-experiment.lock.txt
 python -m pip check
-export QWEN_VENV_DIR="$PWD/.venv-qwen-experiments"
+export RUN_VENV_DIR="$PWD/.venv-experiment"
 ```
 
-On HoreKa use the workspace-local Python already used by `.venv-qwen`, without
-the Capella module command. Both launchers honor `QWEN_VENV_DIR`; without it they
-still default to `.venv-qwen` for existing watermark jobs.
+On HoreKa use the workspace-local Python already used by `.venv-watermark`, without
+the Capella module command. Both launchers honor `RUN_VENV_DIR`; without it they
+still default to `.venv-watermark` for existing watermark jobs.
 
 Preflight is CPU-only and checks paths, alignment, manifest hashes, and splits:
 
@@ -163,7 +162,7 @@ One job per experiment, one epoch, 100 training texts, five generated answers
 per prompt variant. Includes training, saving/reloading adapters, and verification:
 
 ```bash
-export QWEN_VENV_DIR="$PWD/.venv-qwen-experiments"
+export RUN_VENV_DIR="$PWD/.venv-experiment"
 for experiment in abstracts_only abstracts_and_titles questions; do
   sbatch --time=02:00:00 --job-name="qwen-smoke-${experiment}" \
     scripts/launch_capella_qwen.sh src.experiments.main.full_pipeline \
@@ -262,7 +261,7 @@ Archive only once, before submitting new runs. First use experiment 2 at size
 exercises a full inference batch of 64. It is a real 100-epoch production run:
 
 ```bash
-export QWEN_VENV_DIR="$PWD/.venv-qwen-experiments"
+export RUN_VENV_DIR="$PWD/.venv-experiment"
 mkdir -p job_outputs
 sbatch --job-name=qwen-h100-check-exp2-100 \
   scripts/launch_capella_qwen.sh src.experiments.main.full_pipeline \
@@ -294,7 +293,7 @@ use the measured new throughput to decide if larger runs need checkpoint resumes
 ## 5. Controls and downstream evaluation
 
 Examples for one configuration (substitute any size/experiment; use the selected
-launcher for GPU tasks). Keep `QWEN_VENV_DIR` exported as above:
+launcher for GPU tasks). Keep `RUN_VENV_DIR` exported as above:
 
 ```bash
 # Unwatermarked training control
@@ -333,7 +332,7 @@ remain legacy-only; this migration targets the three main experiments/controls.
 
 `qwen_on_llama_pipeline.py` is the cross-model control. It trains the Qwen
 model with the same Qwen LoRA configuration but reads the existing
-`data/t_ws/combined_t_ws.json` targets and Llama-tokenized prefix prompts. It
+`data/t_ws/llama/combined_t_ws.json` targets and Llama-tokenized prefix prompts. It
 also verifies generated text with the Llama tokenizer and the historical
 Waterfall 0.2.13 Fourier convention, while still running inside the Qwen
 training environment.
@@ -371,7 +370,7 @@ paths, 50000 as the largest size, and separate `thesis/figures/results/qwen/`
 outputs. Register the separate kernel if using these on the HPC:
 
 ```bash
-python -m ipykernel install --user --name watermark-qwen --display-name 'Qwen experiments'
+python -m ipykernel install --user --name watermark-experiment --display-name '.venv-experiment'
 python -m unittest discover -s tests -v
 ```
 

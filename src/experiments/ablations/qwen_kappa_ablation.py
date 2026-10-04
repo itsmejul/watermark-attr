@@ -49,7 +49,7 @@ SAMPLING_STRENGTH_LENGTHFIX_SUMMARY = (
     SAMPLING_LENGTHFIX_OUTPUT_ROOT
     / "kappa_strength__temperature_1__top_p_1__top_k_0_summary.json"
 )
-BASE_CONFIG_PATH = Path("data/watermark_config_qwen3_5_9b.json")
+BASE_CONFIG_PATH = Path("data/t_ws/config_qwen.json")
 KEYS_PATH = Path("data/keys.json")
 
 

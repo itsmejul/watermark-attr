@@ -41,7 +41,7 @@ def load_titles(n_samples):
         return titles[:n_samples]
 
 def load_questions(n_samples):
-    questions = load_path_file(["data", "prompts"], "questions.json")
+    questions = load_path_file(["data", "prompts", "shared"], "questions.json")
     questions = [[q if q is not None else "" for q in sublist] for sublist in questions] # for None questions replace with empty string
     if n_samples < 0:
         return questions
@@ -113,11 +113,11 @@ def load_or_create_path_file(path, filename):
         return {}
 
 HELDOUT_START, HELDOUT_END = 63800, 64000
-def load_subset(texts_path: str = "data/t_ws/combined_t_ws.json",
+def load_subset(texts_path: str = "data/t_ws/llama/combined_t_ws.json",
                 keys_path: str = "data/keys.json",
                 n: int = -1,
                 seed: int = 48,
-                prompts_path: str = "data/prompts/prefix_10.json", exclude_heldout: bool = True):
+                prompts_path: str = "data/prompts/llama/prefix_10.json", exclude_heldout: bool = True):
     with open(REPO_ROOT / texts_path, "r") as f:
         texts = json.load(f)
     with open(REPO_ROOT / keys_path, "r") as f:
@@ -129,9 +129,9 @@ def load_subset(texts_path: str = "data/t_ws/combined_t_ws.json",
 
     titles = load_titles(64000)
 
-    titles_1 = load_path_file(["data", "prompts"], "titles_1.json")
-    titles_2 = load_path_file(["data", "prompts"], "titles_2.json")
-    titles_3 = load_path_file(["data", "prompts"], "titles_3.json")
+    titles_1 = load_path_file(["data", "prompts", "shared"], "titles_1.json")
+    titles_2 = load_path_file(["data", "prompts", "shared"], "titles_2.json")
+    titles_3 = load_path_file(["data", "prompts", "shared"], "titles_3.json")
     questions = load_questions(64000)
     train_questions = [q[0] for q in questions]
     held_out_questions = [q[1] for q in questions]

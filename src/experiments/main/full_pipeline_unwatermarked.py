@@ -140,10 +140,10 @@ else:
 
 generation_config = load_path_file(["data"], "generation_config.json")
 train_config = load_path_file(["lora_adapters", sample_type], "train_config.json")
-watermark_config = load_path_file(["data"], "watermark_config.json")
+watermark_config = load_path_file(["data", "t_ws"], "config_llama.json")
 config = generation_config | train_config | watermark_config
 
-unwm_prompts_path = Path("data") / "prompts" / "prefix_10_unwatermarked.json"
+unwm_prompts_path = Path("data") / "prompts" / "llama" / "prefix_10_unwatermarked.json"
 if not unwm_prompts_path.is_file():
     print(f"Generating {unwm_prompts_path} from unwatermarked abstracts...")
     wm_tokenizer = AutoTokenizer.from_pretrained(config["watermark_model"])

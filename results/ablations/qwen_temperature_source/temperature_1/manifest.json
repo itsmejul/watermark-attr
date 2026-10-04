@@ -9,7 +9,7 @@
     0,
     99
   ],
-  "base_config": "data/watermark_config_qwen3_5_9b.json",
+  "base_config": "data/t_ws/config_qwen.json",
   "keys_file": "data/keys.json",
   "generation_seed": 20260920,
   "output_dir": "results/ablations/qwen_temperature_source/temperature_1"

@@ -14,17 +14,17 @@ case "$cluster" in
     *) echo "Unknown cluster: $cluster" >&2; exit 64 ;;
 esac
 
-if [[ ! -f data/experiment_config_qwen.json || ! -f data/t_ws/combined_t_ws.json ]]; then
+if [[ ! -f data/experiment_config_qwen.json || ! -f data/t_ws/llama/combined_t_ws.json ]]; then
     echo "Run from the repository root with the Llama-watermarked corpus available." >&2
     exit 1
 fi
 
-export QWEN_VENV_DIR="${QWEN_VENV_DIR:-${PWD}/.venv-qwen-experiments}"
-if [[ ! -x "${QWEN_VENV_DIR}/bin/python" ]]; then
-    echo "Missing Qwen experiment environment: ${QWEN_VENV_DIR}" >&2
+export RUN_VENV_DIR="${RUN_VENV_DIR:-${PWD}/.venv-experiment}"
+if [[ ! -x "${RUN_VENV_DIR}/bin/python" ]]; then
+    echo "Missing experiment environment: ${RUN_VENV_DIR}" >&2
     exit 1
 fi
-if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
+if ! "${RUN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
     if [[ "$cluster" == "capella" ]]; then
         if ! type module >/dev/null 2>&1; then
             # shellcheck disable=SC1091
@@ -34,8 +34,8 @@ if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
         module load release/24.04 GCCcore/13.3.0 Python/3.12.3
     fi
 fi
-if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
-    echo "The Qwen-environment Python cannot start: ${QWEN_VENV_DIR}/bin/python" >&2
+if ! "${RUN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
+    echo "The runtime environment Python cannot start: ${RUN_VENV_DIR}/bin/python" >&2
     exit 1
 fi
 
@@ -43,7 +43,7 @@ mkdir -p job_outputs
 
 # Validate the 1,000-sample Experiment 1 open-keyspace ablation before
 # creating any Slurm jobs.
-"${QWEN_VENV_DIR}/bin/python" -m src.experiments.main.qwen_on_llama_open_pipeline \
+"${RUN_VENV_DIR}/bin/python" -m src.experiments.main.qwen_on_llama_open_pipeline \
     1000 abstracts_only 32 1000 --preflight >/dev/null
 
 # The open-keyspace ablation is intentionally only Experiment 1 at N=1,000.

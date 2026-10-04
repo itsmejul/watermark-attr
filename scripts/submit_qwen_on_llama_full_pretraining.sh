@@ -12,17 +12,17 @@ sample_type="${3:-abstracts_only}"
 batch_size="${4:-32}"
 n_eval_samples="${5:-1000}"
 
-if [[ ! -f data/experiment_config_qwen.json || ! -f data/t_ws/combined_t_ws.json ]]; then
+if [[ ! -f data/experiment_config_qwen.json || ! -f data/t_ws/llama/combined_t_ws.json ]]; then
     echo "Run from the repository root with the Llama-watermarked corpus available." >&2
     exit 1
 fi
 
-export QWEN_VENV_DIR="${QWEN_VENV_DIR:-${PWD}/.venv-qwen-experiments}"
-if [[ ! -x "${QWEN_VENV_DIR}/bin/python" ]]; then
-    echo "Missing Qwen experiment environment: ${QWEN_VENV_DIR}" >&2
+export RUN_VENV_DIR="${RUN_VENV_DIR:-${PWD}/.venv-experiment}"
+if [[ ! -x "${RUN_VENV_DIR}/bin/python" ]]; then
+    echo "Missing experiment environment: ${RUN_VENV_DIR}" >&2
     exit 1
 fi
-if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
+if ! "${RUN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
     if ! type module >/dev/null 2>&1; then
         # shellcheck disable=SC1091
         source /etc/profile
@@ -30,7 +30,7 @@ if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
     module purge
     module load release/24.04 GCCcore/13.3.0 Python/3.12.3
 fi
-if ! "${QWEN_VENV_DIR}/bin/python" -c \
+if ! "${RUN_VENV_DIR}/bin/python" -c \
     'from importlib.metadata import version; assert version("waterfall") == "0.3.4"; assert version("transformers") == "5.5.0"' \
     >/dev/null 2>&1; then
     echo "The experiment environment must contain waterfall==0.3.4 and transformers==5.5.0." >&2
@@ -44,7 +44,7 @@ args=(
     --profile qwen_on_llama --resume
 )
 
-"${QWEN_VENV_DIR}/bin/python" -m "$module_name" "${args[@]}" --preflight
+"${RUN_VENV_DIR}/bin/python" -m "$module_name" "${args[@]}" --preflight
 
 submission=$(sbatch --parsable --time=24:00:00 \
     --job-name="qwen-full-llamawm-${n_samples}" \

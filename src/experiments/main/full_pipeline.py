@@ -135,7 +135,7 @@ if not args.eval_only:
 
 generation_config = load_path_file(["data"], "generation_config.json")
 train_config = load_path_file(["lora_adapters", sample_type], "train_config.json")
-watermark_config = load_path_file(["data"], "watermark_config.json")
+watermark_config = load_path_file(["data", "t_ws"], "config_llama.json")
 config = generation_config | train_config | watermark_config
 if args.eos_fix:
     config.update(
@@ -144,7 +144,7 @@ if args.eos_fix:
         max_response_tokens=300,
     )
 
-subset = load_subset(n=int(n_samples), prompts_path="data/prompts/prefix_10.json")
+subset = load_subset(n=int(n_samples), prompts_path="data/prompts/llama/prefix_10.json")
 ids = subset["ids"]
 k_ps = subset["k_ps"]
 

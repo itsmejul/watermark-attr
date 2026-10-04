@@ -122,7 +122,7 @@ def parse_args(mode, argv=None):
 def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_variant=None):
     args = parse_args(mode, argv)
     training_profile = ExperimentProfile("qwen")
-    if watermark_source not in ("qwen", "qwen_kappa4_lengthfix", "llama"):
+    if watermark_source not in ("qwen", "llama"):
         raise ValueError(f"Unknown watermark source: {watermark_source}")
     cross_model = watermark_source == "llama"
     if experiment_variant not in (None, "batch64"):
@@ -190,7 +190,8 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
                 or corpus_manifest["watermark_model"] != source_profile.model):
             raise ValueError("Combined corpus manifest does not match the Qwen config/keys")
     required = [*subset_kwargs.values(), "data/seeded_dataset.jsonl",
-                *[f"data/prompts/{p}.json" for p in ("titles_1", "titles_2", "titles_3", "questions")]]
+                *[f"data/prompts/shared/{p}.json"
+                  for p in ("titles_1", "titles_2", "titles_3", "questions")]]
     open_set = None
     if mode == "open":
         open_set = load_open_keyspace_set(args.n_eval_samples)
@@ -208,7 +209,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
         return
     training_profile.check_waterfall()
     if version("transformers") != "5.5.0":
-        raise RuntimeError("Use requirements-qwen-experiments.txt in .venv-qwen-experiments, not the watermark environment.")
+        raise RuntimeError("Use req-experiment.txt in .venv-experiment, not the watermark environment.")
     from unsloth import FastLanguageModel  # must precede transformers and watermark imports
     from transformers import AutoTokenizer
     from src.util.finetune import finetune

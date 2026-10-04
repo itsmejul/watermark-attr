@@ -1,4 +1,4 @@
-"""Generate the watermark keys (data/keys.json) from data/watermark_config.json.
+"""Generate the watermark keys from the canonical Llama watermark config.
 
 Each of the n_samples texts is assigned an id and a k_p key
 based on the config generation strategy. 
@@ -11,7 +11,7 @@ from src.util.key_generator import generate_keys
 
 sys.stdout.reconfigure(line_buffering=True)
 
-config = load_path_file(["data"], "watermark_config.json")
+config = load_path_file(["data", "t_ws"], "config_llama.json")
 
 keys = generate_keys(
     config["n_samples"],

@@ -19,16 +19,16 @@ for argument in "$@"; do
             exit 64 ;;
     esac
 done
-if [[ ! -f data/experiment_config_qwen.json || ! -f data/t_ws/combined_t_ws.json ]]; then
+if [[ ! -f data/experiment_config_qwen.json || ! -f data/t_ws/llama/combined_t_ws.json ]]; then
     echo "Run from the repository root with the Llama-watermarked corpus available." >&2
     exit 1
 fi
-export QWEN_VENV_DIR="${QWEN_VENV_DIR:-${PWD}/.venv-qwen-experiments}"
-if [[ ! -x "${QWEN_VENV_DIR}/bin/python" ]]; then
-    echo "Missing training environment: ${QWEN_VENV_DIR}" >&2
+export RUN_VENV_DIR="${RUN_VENV_DIR:-${PWD}/.venv-experiment}"
+if [[ ! -x "${RUN_VENV_DIR}/bin/python" ]]; then
+    echo "Missing training environment: ${RUN_VENV_DIR}" >&2
     exit 1
 fi
-if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
+if ! "${RUN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
     if [[ "$cluster" == "capella" ]]; then
         if ! type module >/dev/null 2>&1; then
             # shellcheck disable=SC1091
@@ -42,8 +42,8 @@ if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
         module load release/24.04 GCCcore/13.3.0 Python/3.12.3
     fi
 fi
-if ! "${QWEN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
-    echo "The training-environment Python cannot start: ${QWEN_VENV_DIR}/bin/python" >&2
+if ! "${RUN_VENV_DIR}/bin/python" -c 'pass' >/dev/null 2>&1; then
+    echo "The training-environment Python cannot start: ${RUN_VENV_DIR}/bin/python" >&2
     exit 1
 fi
 mkdir -p job_outputs
@@ -55,7 +55,7 @@ for sample_type in abstracts_only abstracts_and_titles questions; do
         micro_batch_size=16
     fi
     for n in 100 500 1000 5000 10000 50000; do
-        "${QWEN_VENV_DIR}/bin/python" -m src.experiments.main.qwen_on_llama_batch64_pipeline \
+        "${RUN_VENV_DIR}/bin/python" -m src.experiments.main.qwen_on_llama_batch64_pipeline \
             "$n" "$sample_type" 64 1000 --micro-batch-size "$micro_batch_size" --preflight "$@" >/dev/null
     done
 done

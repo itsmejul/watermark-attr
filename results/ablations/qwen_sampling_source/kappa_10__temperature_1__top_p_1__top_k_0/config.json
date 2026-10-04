@@ -16,7 +16,7 @@
     "enable_thinking": false
   },
   "keys_file": "data/keys.json",
-  "output_dir": "data/t_ws_qwen3_5_9b",
+  "output_dir": "data/t_ws/qwen",
   "checkpoint_every": 10,
   "generation_seed": 20260920
 }

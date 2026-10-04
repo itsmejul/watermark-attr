@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def convert(notebook, experiment):
     notebook["metadata"]["kernelspec"] = {
-        "display_name": "Qwen experiments", "language": "python", "name": "watermark-qwen",
+        "display_name": ".venv-experiment", "language": "python", "name": "watermark-experiment",
     }
     replacements = {
         f"../../results/experiment{experiment}":

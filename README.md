@@ -8,12 +8,11 @@ All experiments were conducted using Python 3.12.3 on a single Nvidia H100 GPU. 
 git lfs install
 git lfs pull
 ```
-Required packages are pinned in `requirements.txt`:
-```
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+
+Current workflows use two isolated Python environments: `.venv-watermark` for
+corpus/prompt creation and watermark ablations, and `.venv-experiment` for all
+training and evaluation. See `README2.md` for the exact reproducible setup and
+the command-to-environment mapping.
 
 In order to use the huggingface models that were used for the experiments, you need to request access to them on Huggingface and create an access token on your huggingface account, then run
 `$ huggingface-cli login`
@@ -23,6 +22,16 @@ Now, you will have access to all the models that your account has access to.
 Also, an OpenAI API is needed in `.env`, see `.env.example` to produce the prompts for further experiments (current the prompts are present in `/data`).
 
 ## Data preparation
+The generated data uses one canonical layout:
+
+```text
+data/prompts/{llama,qwen}/   model-tokenized prefix prompts
+data/prompts/shared/         model-independent title/question prompts
+data/prompts/config_*.json   prompt-generation profiles
+data/t_ws/{llama,qwen}/      the two watermarked corpora
+data/t_ws/config_*.json      watermark-generation configs
+```
+
 Download the unarXive open subset from https://zenodo.org/records/7752754 and
 extract it to `data/unarxive_open/`.  
 
@@ -34,32 +43,31 @@ expects the repo root on PYTHONPATH, e.g.
 `data/seeded_dataset.jsonl`.
 
 `create_keys.py`: creates `data/keys.json` with the watermark key values
-according to `data/watermark_config.json`.
+according to `data/t_ws/config_llama.json`.
 
 `create_t_ws.py`: runs the watermarking.
 Due to high computation costs, optionally pass a batch number to only watermark one block of `batch_size` samples per process (multiple runs are needed then).  
 Pass nothing to watermark all samples at once. 
-Each block is written to `data/t_ws/t_ws_batch_samples_<start>_to_<end>/`. 
-Once all blocks are done, run it again with `--combine` to merge them into `data/t_ws/combined_t_ws.json`.
+Each block is written to `data/t_ws/llama/t_ws_batch_samples_<start>_to_<end>/`. 
+Once all blocks are done, run it again with `--combine` to merge them into `data/t_ws/llama/combined_t_ws.json`.
 
 ### Qwen 3.5 watermarking on HoreKa Green
 
 The Qwen corpus is a separate experimental arm. It uses the unchanged
 `data/keys.json` keys and watermark parameters, disables Qwen reasoning, and
-writes only below `data/t_ws_qwen3_5_9b/`. The Llama environment and
-`data/t_ws/` corpus remain untouched. The Qwen config explicitly retains the
-old Transformer's implicit `top_k=50` in addition to temperature 0.5 and
-top-p 0.9; these intentionally differ from Qwen's generic recommendations so
-the model is the changed variable.
+writes only below `data/t_ws/qwen/`; the Llama corpus stays in
+`data/t_ws/llama/`. The maintained Qwen corpus uses the selected fixed setup:
+kappa 4, temperature 1.0, no top-k/top-p filtering, and a source-token-based
+generation-length limit of 1.5x.
 
 Create its separate environment from the repository root (the system Python
 on Green is too old for current Waterfall):
 
 ```bash
 uv python install 3.12
-uv venv --python 3.12 .venv-qwen
-uv pip install --python .venv-qwen/bin/python -r requirements-qwen-watermark.txt
-source .venv-qwen/bin/activate
+uv venv --python 3.12 .venv-watermark
+uv pip install --python .venv-watermark/bin/python -r req-watermark.txt
+source .venv-watermark/bin/activate
 export HF_HOME=/hkfs/work/workspace/scratch/id_qry6439-watermark_paper/.cache/huggingface
 mkdir -p "$HF_HOME"
 hf download Qwen/Qwen3.5-9B
@@ -74,7 +82,7 @@ so the later full batch-1 job resumes at text 51:
 ```bash
 sbatch --partition=dev_accelerated --time=01:00:00 \
   scripts/launch_horeka_green.sh src.data_creation.create_t_ws 1 \
-  --config data/watermark_config_qwen3_5_9b.json --limit 50
+  --config data/t_ws/config_qwen.json --limit 50
 ```
 
 After checking the timing, submit the 13 corpus batches:
@@ -82,7 +90,7 @@ After checking the timing, submit the 13 corpus batches:
 ```bash
 for batch in $(seq 1 13); do
   sbatch scripts/launch_horeka_green.sh src.data_creation.create_t_ws "$batch" \
-    --config data/watermark_config_qwen3_5_9b.json
+    --config data/t_ws/config_qwen.json
 done
 ```
 
@@ -91,29 +99,31 @@ resumes a partial batch. After every batch is complete, validate hashes,
 ranges, and item counts and create the combined corpus:
 
 ```bash
-.venv-qwen/bin/python -m src.data_creation.create_t_ws --combine \
-  --config data/watermark_config_qwen3_5_9b.json
+.venv-watermark/bin/python -m src.data_creation.create_t_ws --combine \
+  --config data/t_ws/config_qwen.json
 ```
 
 Then generate only the prompt files that actually depend on the watermark
 model/corpus:
 
 ```bash
-.venv-qwen/bin/python -m src.data_creation.create_prompt_dataset \
-  --profile data/prompt_config_qwen3_5_9b.json \
+.venv-watermark/bin/python -m src.data_creation.create_prompt_dataset \
+  --profile data/prompts/config_qwen.json \
   --set both \
   --tasks prefix
 ```
 
 This writes `prefix_10.json` and `prefix_10_open.json` below
-`data/prompts_qwen3_5_9b/`. The title variants are based only on the unchanged
+`data/prompts/qwen/`. The title variants are based only on the unchanged
 original titles, and the questions are based only on the unchanged original
 unwatermarked abstracts, so the Qwen experiment reuses those files from
-`data/prompts/`. No OpenAI request or API key is needed for this prefix-only
+`data/prompts/shared/`. No OpenAI request or API key is needed for this prefix-only
 step.
 
 `create_prompt_dataset.py`: creates all prompt files in
-`data/prompts` (prefixes, perturbed titles, and questions) for both the closed and the open-keyspace set. Needs `OPENAI_API_KEY`. Run with `--set closed`,
+`data/prompts/llama` (Llama prefixes) and `data/prompts/shared` (perturbed titles
+and questions) for both the closed and open-keyspace sets. Needs
+`OPENAI_API_KEY` only for titles/questions. Run with `--set closed`,
 `--set open`, or no parameter for both.
 
 ## Ablations

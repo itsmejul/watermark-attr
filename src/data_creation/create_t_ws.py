@@ -3,9 +3,9 @@
 Examples:
     python -m src.data_creation.create_t_ws 3
     python -m src.data_creation.create_t_ws 1 \
-        --config data/watermark_config_qwen3_5_9b.json --limit 50
+        --config data/t_ws/config_qwen.json --limit 50
     python -m src.data_creation.create_t_ws --combine \
-        --config data/watermark_config_qwen3_5_9b.json
+        --config data/t_ws/config_qwen.json
 
 Batch numbers are one-indexed. A partial batch is checkpointed and resumes on
 the next invocation. ``--limit`` is intended for a timing smoke test and limits
@@ -24,9 +24,9 @@ sys.stdout.reconfigure(line_buffering=True)
 from src.util.filereader import REPO_ROOT, load_abstracts, write_path_file_atomic
 
 
-DEFAULT_CONFIG = "data/watermark_config.json"
+DEFAULT_CONFIG = "data/t_ws/config_llama.json"
 DEFAULT_KEYS = "data/keys.json"
-DEFAULT_OUTPUT_DIR = "data/t_ws"
+DEFAULT_OUTPUT_DIR = "data/t_ws/llama"
 MANIFEST_SCHEMA_VERSION = 1
 
 

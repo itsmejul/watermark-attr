@@ -1,8 +1,8 @@
 """Pre-compute the tokenization of all T_ws so similarity_eval.py can analyze
 bigrams without re-tokenizing.
 
-Writes data/t_ws/bigrams.npz (offsets + concatenated token ids) and
-data/t_ws/bigrams_meta.json.
+Writes data/t_ws/llama/bigrams.npz (offsets + concatenated token ids) and
+data/t_ws/llama/bigrams_meta.json.
 
 Usage:
     python -m src.experiments.main.compute_t_w_bigrams
@@ -21,9 +21,9 @@ import numpy as np
 from transformers import AutoTokenizer
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-T_WS_PATH = REPO_ROOT / "data" / "t_ws" / "combined_t_ws.json"
-OUT_NPZ = REPO_ROOT / "data" / "t_ws" / "bigrams.npz"
-OUT_META = REPO_ROOT / "data" / "t_ws" / "bigrams_meta.json"
+T_WS_PATH = REPO_ROOT / "data" / "t_ws" / "llama" / "combined_t_ws.json"
+OUT_NPZ = REPO_ROOT / "data" / "t_ws" / "llama" / "bigrams.npz"
+OUT_META = REPO_ROOT / "data" / "t_ws" / "llama" / "bigrams_meta.json"
 
 TOKENIZER_NAME = "meta-llama/Llama-3.1-8B-Instruct"
 BATCH_SIZE = 512

@@ -22,8 +22,8 @@ from src.experiments.main import qwen_on_llama_batch64_pipeline
 class ProfileTests(unittest.TestCase):
     def test_llama_defaults_unchanged(self):
         p = ExperimentProfile()
-        self.assertEqual(p.subset_kwargs(), dict(texts_path="data/t_ws/combined_t_ws.json",
-                         keys_path="data/keys.json", prompts_path="data/prompts/prefix_10.json"))
+        self.assertEqual(p.subset_kwargs(), dict(texts_path="data/t_ws/llama/combined_t_ws.json",
+                         keys_path="data/keys.json", prompts_path="data/prompts/llama/prefix_10.json"))
         self.assertEqual(p.adapter_root("questions"), ["lora_adapters", "questions"])
         self.assertEqual(p.experiment_dir("questions"), "experiment3")
 
@@ -40,7 +40,7 @@ class ProfileTests(unittest.TestCase):
                          "experiment2-llamaeosfix")
         self.assertEqual(eos.adapter_root("abstracts_only"),
                          ["lora_adapters", "llamaeosfix", "abstracts_only"])
-        self.assertEqual(eos.corpus_dir, "data/t_ws")
+        self.assertEqual(eos.corpus_dir, "data/t_ws/llama")
         with patch("src.util.experiment_profile.version", return_value="0.3.4"):
             eos.check_waterfall()
 
@@ -55,7 +55,8 @@ class ProfileTests(unittest.TestCase):
                 resolved = json.loads(output.getvalue())
                 roots.add(resolved["adapters"])
                 self.assertIn("-qwen", resolved["results"])
-                self.assertIn("t_ws_qwen3_5_9b", resolved["subset"]["texts_path"])
+                self.assertEqual(resolved["subset"]["texts_path"],
+                                 "data/t_ws/qwen/combined_t_ws.json")
                 self.assertEqual(resolved["train"]["epochs"], 100)
                 self.assertEqual(resolved["train"]["batch_size"], 32)
                 expected_micro_batch = 32 if sample_type == "abstracts_only" else 16
@@ -79,7 +80,7 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(len(roots), 18)
 
     def test_kappa4_lengthfix_grid_uses_new_corpus_prompts_and_outputs(self):
-        p = ExperimentProfile("qwen_kappa4_lengthfix")
+        p = ExperimentProfile("qwen")
         roots = set()
         for sample_type in SAMPLE_TYPES:
             for n in QWEN_SIZES:
@@ -88,24 +89,24 @@ class ProfileTests(unittest.TestCase):
                     pipeline.main(
                         "watermarked",
                         [str(n), sample_type, "32", "1000", "--dry-run"],
-                        watermark_source="qwen_kappa4_lengthfix",
+                        watermark_source="qwen",
                     )
                 resolved = json.loads(output.getvalue())
                 roots.add(resolved["adapters"])
                 self.assertEqual(
                     resolved["adapters"],
-                    f"lora_adapters/qwen_kappa4_lengthfix/{sample_type}/{n}/32",
+                    f"lora_adapters/qwen/{sample_type}/{n}/32",
                 )
                 self.assertEqual(
                     resolved["results"],
-                    f"results/experiment{SAMPLE_TYPES.index(sample_type) + 1}-qwen-kappa4-lengthfix",
+                    f"results/experiment{SAMPLE_TYPES.index(sample_type) + 1}-qwen",
                 )
                 self.assertIn(
-                    "data/t_ws_qwen3_5_9b_kappa4_lengthfix/combined_t_ws.json",
+                    "data/t_ws/qwen/combined_t_ws.json",
                     resolved["subset"]["texts_path"],
                 )
                 self.assertIn(
-                    "data/prompts_qwen3_5_9b_kappa4_lengthfix/prefix_10.json",
+                    "data/prompts/qwen/prefix_10.json",
                     resolved["subset"]["prompts_path"],
                 )
                 self.assertEqual(resolved["train"]["epochs"], 100)
@@ -124,8 +125,8 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(resolved["mode"], "qwen_on_llama_watermarked")
         self.assertEqual(resolved["adapters"], "lora_adapters/qwen_on_llama/questions/1000/32")
         self.assertEqual(resolved["results"], "results/experiment3-qwen-on-llama")
-        self.assertEqual(resolved["subset"]["texts_path"], "data/t_ws/combined_t_ws.json")
-        self.assertEqual(resolved["subset"]["prompts_path"], "data/prompts/prefix_10.json")
+        self.assertEqual(resolved["subset"]["texts_path"], "data/t_ws/llama/combined_t_ws.json")
+        self.assertEqual(resolved["subset"]["prompts_path"], "data/prompts/llama/prefix_10.json")
         self.assertEqual(resolved["detector_model"], "meta-llama/Llama-3.1-8B-Instruct")
         self.assertEqual(resolved["train"]["train_model"], "Qwen/Qwen3.5-9B")
 
@@ -133,8 +134,8 @@ class ProfileTests(unittest.TestCase):
         self.assertTrue(p.is_qwen_trained)
         self.assertEqual(p.experiment_dir("questions"), "experiment3-qwen-on-llama")
         self.assertEqual(p.adapter_root("questions"), ["lora_adapters", "qwen_on_llama", "questions"])
-        self.assertEqual(p.corpus_dir, "data/t_ws")
-        self.assertEqual(p.prompts_dir, "data/prompts")
+        self.assertEqual(p.corpus_dir, "data/t_ws/llama")
+        self.assertEqual(p.prompts_dir, "data/prompts/llama")
         self.assertEqual(p.model, "meta-llama/Llama-3.1-8B-Instruct")
         self.assertEqual(p.train_config("questions")["train_model"], "Qwen/Qwen3.5-9B")
 
@@ -182,9 +183,9 @@ class ProfileTests(unittest.TestCase):
     def test_shared_prompts_and_tokenizer_specific_prefixes(self):
         p = ExperimentProfile("qwen")
         for filename in ("questions.json", "titles_1.json", "questions_open.json", "titles_3_open.json"):
-            self.assertEqual(p.prompt_path(filename), f"data/prompts/{filename}")
+            self.assertEqual(p.prompt_path(filename), f"data/prompts/shared/{filename}")
         for filename in ("prefix_10.json", "prefix_10_open.json", "prefix_10_unwatermarked.json"):
-            self.assertEqual(p.prompt_path(filename), f"data/prompts_qwen3_5_9b/{filename}")
+            self.assertEqual(p.prompt_path(filename), f"data/prompts/qwen/{filename}")
 
     def test_control_and_smoke_paths(self):
         for mode in ("watermarked", "unwatermarked", "open"):
@@ -223,12 +224,12 @@ class ProfileTests(unittest.TestCase):
             sim.configure_profile("qwen")
             self.assertEqual(sim.SAMPLE_SIZES, QWEN_SIZES)
             self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"], "experiment1-qwen")
-            self.assertIn("t_ws_qwen3_5_9b", str(sim.BIGRAMS_NPZ))
+            self.assertIn("data/t_ws/qwen", str(sim.BIGRAMS_NPZ))
             self.assertEqual(sim.TOKENIZER_NAME, "Qwen/Qwen3.5-9B")
             sim.configure_profile("qwen_on_llama")
             self.assertEqual(sim.SAMPLE_SIZES, QWEN_SIZES)
             self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"], "experiment1-qwen-on-llama")
-            self.assertEqual(str(sim.BIGRAMS_NPZ), str(Path(__file__).resolve().parents[1] / "data/t_ws/bigrams.npz"))
+            self.assertEqual(str(sim.BIGRAMS_NPZ), str(Path(__file__).resolve().parents[1] / "data/t_ws/llama/bigrams.npz"))
             self.assertEqual(sim.TOKENIZER_NAME, "meta-llama/Llama-3.1-8B-Instruct")
             sim.configure_profile("llama_eosfix")
             self.assertEqual(sim.SAMPLE_SIZES, QWEN_SIZES)

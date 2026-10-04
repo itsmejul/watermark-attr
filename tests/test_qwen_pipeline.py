@@ -20,17 +20,13 @@ class PipelineTests(unittest.TestCase):
         self.stack = contextlib.ExitStack()
         self.addCleanup(self.stack.close)
         self.calls = {"train": [], "ask": [], "verify": []}
-        self.write(["data/t_ws_qwen3_5_9b"], "combined_manifest.json", {
+        self.write(["data/t_ws/qwen"], "combined_manifest.json", {
             "combined_count": 64000, "config_sha256": "hash", "keys_sha256": "hash",
             "watermark_model": "Qwen/Qwen3.5-9B",
         })
-        self.write(["data/t_ws_qwen3_5_9b_kappa4_lengthfix"], "combined_manifest.json", {
-            "combined_count": 64000, "config_sha256": "hash", "keys_sha256": "hash",
-            "watermark_model": "Qwen/Qwen3.5-9B",
-        })
-        self.write(["data/prompts_qwen3_5_9b"], "prefix_10_unwatermarked.json", ["prefix"] * 64000)
+        self.write(["data/prompts/qwen"], "prefix_10_unwatermarked.json", ["prefix"] * 64000)
         for p in ("prefix_10", "titles_1", "titles_2", "titles_3", "questions"):
-            directory = "data/prompts_qwen3_5_9b" if p == "prefix_10" else "data/prompts"
+            directory = "data/prompts/qwen" if p == "prefix_10" else "data/prompts/shared"
             self.write([directory], f"{p}_open.json", [["q1", "q2"] if p == "questions" else "prompt"] * 1000)
 
         def read(parts, filename):
@@ -39,11 +35,14 @@ class PipelineTests(unittest.TestCase):
             return json.loads(self.root.joinpath(*parts, filename).read_text())
 
         def subset(n, **kwargs):
-            if "t_ws_qwen3_5_9b" in kwargs["texts_path"]:
-                self.assertIn("prompts_qwen3_5_9b", kwargs["prompts_path"])
+            if kwargs["texts_path"] == "data/t_ws/qwen/combined_t_ws.json":
+                self.assertIn(kwargs["prompts_path"], (
+                    "data/prompts/qwen/prefix_10.json",
+                    "data/prompts/qwen/prefix_10_unwatermarked.json",
+                ))
             else:
-                self.assertEqual(kwargs["texts_path"], "data/t_ws/combined_t_ws.json")
-                self.assertEqual(kwargs["prompts_path"], "data/prompts/prefix_10.json")
+                self.assertEqual(kwargs["texts_path"], "data/t_ws/llama/combined_t_ws.json")
+                self.assertEqual(kwargs["prompts_path"], "data/prompts/llama/prefix_10.json")
             return self.subset(n)
 
         def train(texts, heldout, config, path, **kwargs):
@@ -138,7 +137,7 @@ class PipelineTests(unittest.TestCase):
     def test_missing_adapter_and_missing_input_fail(self):
         with self.assertRaises(FileNotFoundError):
             self.run_pipeline(extra=["--eval-only"])
-        (self.root / "data/t_ws_qwen3_5_9b/combined_manifest.json").unlink()
+        (self.root / "data/t_ws/qwen/combined_manifest.json").unlink()
         with self.assertRaises(ValueError):
             self.run_pipeline(extra=["--preflight"])
 
@@ -153,20 +152,20 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(manifest["detector_model"], "meta-llama/Llama-3.1-8B-Instruct")
 
     def test_kappa4_lengthfix_run_uses_separate_qwen_on_qwen_paths(self):
-        self.run_pipeline(watermark_source="qwen_kappa4_lengthfix")
+        self.run_pipeline(watermark_source="qwen")
         path, adapter, _ = self.calls["ask"][0]
-        self.assertEqual(path[1], "experiment1-qwen-kappa4-lengthfix-smoke")
+        self.assertEqual(path[1], "experiment1-qwen-smoke")
         self.assertEqual(
-            adapter[:3], ["lora_adapters", "qwen_kappa4_lengthfix", "smoke"]
+            adapter[:3], ["lora_adapters", "qwen", "smoke"]
         )
         self.assertFalse(self.calls["verify"][0][2]["legacy_fourier"])
         manifest_path = (
             self.root
-            / "lora_adapters/qwen_kappa4_lengthfix/smoke/abstracts_only/10/32/run_manifest.json"
+            / "lora_adapters/qwen/smoke/abstracts_only/10/32/run_manifest.json"
         )
         manifest = json.loads(manifest_path.read_text())
-        self.assertEqual(manifest["profile"], "qwen_kappa4_lengthfix")
-        self.assertEqual(manifest["watermark_source"], "qwen_kappa4_lengthfix")
+        self.assertEqual(manifest["profile"], "qwen")
+        self.assertEqual(manifest["watermark_source"], "qwen")
         self.assertEqual(manifest["detector_model"], "Qwen/Qwen3.5-9B")
 
     def test_batch64_variant_uses_its_own_roots(self):

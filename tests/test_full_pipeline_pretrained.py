@@ -20,7 +20,7 @@ class FullPipelinePretrainedTests(unittest.TestCase):
         self.assertEqual(resolved["watermark_source"], "llama")
         self.assertEqual(resolved["detector_model"], "meta-llama/Llama-3.1-8B-Instruct")
         self.assertEqual(
-            resolved["subset"]["texts_path"], "data/t_ws/combined_t_ws.json"
+            resolved["subset"]["texts_path"], "data/t_ws/llama/combined_t_ws.json"
         )
         self.assertEqual(resolved["train"]["epochs"], 5)
         self.assertEqual(resolved["train"]["save_every_n_epochs"], 1)

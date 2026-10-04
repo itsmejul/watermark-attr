@@ -25,7 +25,7 @@ usage:
     PYTHONPATH=. python src/data_creation/create_prompt_dataset.py --set open
     PYTHONPATH=. python src/data_creation/create_prompt_dataset.py --set closed
     PYTHONPATH=. python src/data_creation/create_prompt_dataset.py \
-        --profile data/prompt_config_qwen3_5_9b.json --tasks prefix
+        --profile data/prompts/config_qwen.json --tasks prefix
 """
 
 import argparse
@@ -420,6 +420,7 @@ def main():
     parser.add_argument("--watermarked-texts", default=None)
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--reuse-prompts-dir", default=None)
+    parser.add_argument("--shared-prompts-dir", default=None)
     parser.add_argument("--work-dir", default=None)
     parser.add_argument("--include-unwatermarked-prefix", action="store_true",
                         help="also prepare tokenizer-specific control prefixes from original abstracts")
@@ -428,22 +429,27 @@ def main():
     profile = _load_profile(args.profile)
     watermark_config_path = _repo_path(
         args.watermark_config
-        or profile.get("watermark_config", "data/watermark_config.json"),
+        or profile.get("watermark_config", "data/t_ws/config_llama.json"),
         "--watermark-config",
     )
     watermarked_texts_path = _repo_path(
         args.watermarked_texts
-        or profile.get("watermarked_texts", "data/t_ws/combined_t_ws.json"),
+        or profile.get("watermarked_texts", "data/t_ws/llama/combined_t_ws.json"),
         "--watermarked-texts",
     )
     output_dir = _repo_path(
-        args.output_dir or profile.get("output_dir", "data/prompts"),
+        args.output_dir or profile.get("output_dir", "data/prompts/llama"),
         "--output-dir",
     )
     reuse_prompts_dir = _repo_path(
         args.reuse_prompts_dir
-        or profile.get("reuse_prompts_dir", "data/prompts"),
+        or profile.get("reuse_prompts_dir", "data/prompts/shared"),
         "--reuse-prompts-dir",
+    )
+    shared_prompts_dir = _repo_path(
+        args.shared_prompts_dir
+        or profile.get("shared_prompts_dir", "data/prompts/shared"),
+        "--shared-prompts-dir",
     )
     work_dir_value = args.work_dir or profile.get("work_dir")
     if work_dir_value:
@@ -502,7 +508,7 @@ def main():
             )
             generated_files.extend(
                 generate_api_tasks(
-                    "", titles, abstracts, batch_ids, tasks, output_dir
+                    "", titles, abstracts, batch_ids, tasks, shared_prompts_dir
                 )
             )
 
@@ -525,7 +531,7 @@ def main():
         if tasks & {"titles", "questions"}:
             generated_files.extend(
                 generate_api_tasks(
-                    "_open", titles, abstracts, batch_ids, tasks, output_dir
+                    "_open", titles, abstracts, batch_ids, tasks, shared_prompts_dir
                 )
             )
 
@@ -536,6 +542,7 @@ def main():
         "generated_tasks": sorted(tasks),
         "generated_files": generated_files,
         "reuse_prompts_dir": str(reuse_prompts_dir),
+        "shared_prompts_dir": str(shared_prompts_dir),
         "reused_files": list(reused_files),
         "question_source": "original unwatermarked abstracts",
         "title_source": "original titles",

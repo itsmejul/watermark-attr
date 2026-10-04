@@ -47,7 +47,7 @@ n_open_samples = int(args.n_open_samples)
 
 generation_config = load_path_file(["data"], "generation_config.json")
 train_config = load_path_file(["lora_adapters", sample_type], "train_config.json")
-watermark_config = load_path_file(["data"], "watermark_config.json")
+watermark_config = load_path_file(["data", "t_ws"], "config_llama.json")
 config = generation_config | train_config | watermark_config
 
 if args.n_samples == "":
@@ -71,16 +71,19 @@ print(f"Candidate k_p set size (from closed-set n_samples={n_samples}): "
 
 
 def require_open_prompts(filename):
-    if not file_exists(["data", "prompts"], filename):
+    prompt_dir = ["data", "prompts", "llama"] if filename.startswith("prefix_") \
+        else ["data", "prompts", "shared"]
+    display_path = "/".join([*prompt_dir, filename])
+    if not file_exists(prompt_dir, filename):
         raise FileNotFoundError(
-            f"data/prompts/{filename} missing. Run "
+            f"{display_path} missing. Run "
             f"`python -m src.data_creation.create_prompt_dataset --set open` "
             f"to generate the open-keyspace prompt files."
         )
-    data = load_path_file(["data", "prompts"], filename)
+    data = load_path_file(prompt_dir, filename)
     if len(data) < n_open_samples:
         raise ValueError(
-            f"data/prompts/{filename} has {len(data)} entries < "
+            f"{display_path} has {len(data)} entries < "
             f"n_open_samples={n_open_samples}."
         )
     return data[:n_open_samples]

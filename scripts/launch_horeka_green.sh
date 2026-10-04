@@ -17,7 +17,7 @@ set -Eeuo pipefail
 
 readonly WORKSPACE_DIR="/hkfs/work/workspace/scratch/id_qry6439-watermark_paper"
 readonly PROJECT_DIR="${WORKSPACE_DIR}/watermark-attr"
-readonly VENV_DIR="${QWEN_VENV_DIR:-${PROJECT_DIR}/.venv-qwen}"
+readonly VENV_DIR="${RUN_VENV_DIR:-${PROJECT_DIR}/.venv-watermark}"
 readonly LOG_DIR="${PROJECT_DIR}/logs"
 
 usage() {
@@ -41,7 +41,7 @@ fi
 cd "${PROJECT_DIR}"
 
 if [[ ! -x "${VENV_DIR}/bin/python" ]]; then
-    echo "Qwen environment not found: ${VENV_DIR}" >&2
+    echo "runtime environment not found: ${VENV_DIR}" >&2
     echo "Create it once with a workspace-local Python >=3.10 before submitting experiments." >&2
     exit 1
 fi

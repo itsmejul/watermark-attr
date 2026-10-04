@@ -66,7 +66,7 @@ def main():
 
     originals = load_titles(N_SAMPLES)
     variants = {
-        name: load_path_file(["data", "prompts"], f"{name}.json")
+        name: load_path_file(["data", "prompts", "shared"], f"{name}.json")
         for name in VARIANTS
     }
     for name, v in variants.items():

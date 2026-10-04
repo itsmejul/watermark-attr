@@ -56,7 +56,7 @@ class QwenKappaAblationTests(unittest.TestCase):
         self.assertEqual(base["temperature_watermark"], 0.5)
         self.assertEqual(
             ablation._output_path(6, temperature=1.0),
-            Path("results/ablations/qwen_temperature_source/temperature_1"),
+            Path("results/_ablations/watermark/qwen_temperature_source/temperature_1"),
         )
 
     def test_top_p_override_is_isolated(self):
@@ -75,7 +75,7 @@ class QwenKappaAblationTests(unittest.TestCase):
         self.assertEqual(base["top_p_watermark"], 0.9)
         self.assertEqual(
             ablation._output_path(6, top_p=1.0),
-            Path("results/ablations/qwen_top_p_source/top_p_1"),
+            Path("results/_ablations/watermark/qwen_top_p_source/top_p_1"),
         )
 
     def test_sampling_combination_has_isolated_path(self):
@@ -98,7 +98,7 @@ class QwenKappaAblationTests(unittest.TestCase):
         self.assertEqual(
             ablation._output_path(6, temperature=1.0, top_p=1.0, top_k=0),
             Path(
-                "results/ablations/qwen_sampling_source/"
+                "results/_ablations/watermark/qwen_sampling_source/"
                 "kappa_6__temperature_1__top_p_1__top_k_0"
             ),
         )
@@ -158,7 +158,7 @@ class QwenKappaAblationTests(unittest.TestCase):
                 token_length_limit=True,
             ),
             Path(
-                "results/ablations/qwen_sampling_source_lengthfix/"
+                "results/_ablations/watermark/qwen_sampling_source_lengthfix/"
                 "kappa_6__temperature_1__top_p_1__top_k_0"
             ),
         )
@@ -196,7 +196,7 @@ class QwenKappaAblationTests(unittest.TestCase):
                             token_length_limit=True,
                         ),
                         Path(
-                            "results/ablations/qwen_sampling_source_lengthfix/"
+                            "results/_ablations/watermark/qwen_sampling_source_lengthfix/"
                             f"kappa_{slug}__temperature_1__top_p_1__top_k_0"
                         ),
                     )

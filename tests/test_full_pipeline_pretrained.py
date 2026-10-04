@@ -15,7 +15,10 @@ class FullPipelinePretrainedTests(unittest.TestCase):
             pipeline.main(["--dry-run"])
         resolved = json.loads(output.getvalue())
         self.assertEqual(resolved["models"], "full_models/qwen_on_llama/abstracts_only/1000/32")
-        self.assertEqual(resolved["results"], "results/experiment1-qwen-on-llama-pretrained")
+        self.assertEqual(
+            resolved["results"],
+            "results/_ablations/qwen_on_llama_full_finetuning/experiment1",
+        )
         self.assertEqual(resolved["training_model"], "Qwen/Qwen3.5-9B")
         self.assertEqual(resolved["watermark_source"], "llama")
         self.assertEqual(resolved["detector_model"], "meta-llama/Llama-3.1-8B-Instruct")
@@ -40,7 +43,10 @@ class FullPipelinePretrainedTests(unittest.TestCase):
                     pipeline.main(["500", sample_type, "16", "50", "--profile", "qwen", "--dry-run"])
                 resolved = json.loads(output.getvalue())
                 self.assertEqual(resolved["models"], f"full_models/qwen/{sample_type}/500/16")
-                self.assertEqual(resolved["results"], f"results/experiment{index}-qwen-pretrained")
+                self.assertEqual(
+                    resolved["results"],
+                    f"results/_ablations/qwen_full_finetuning/experiment{index}",
+                )
                 self.assertEqual(resolved["train"]["n_samples"], 500)
                 self.assertEqual(resolved["train"]["batch_size"], 16)
                 self.assertEqual(resolved["subset"], profile.subset_kwargs())
@@ -60,7 +66,7 @@ class FullPipelinePretrainedTests(unittest.TestCase):
         )
         self.assertEqual(
             resolved["results"],
-            "results/experiment1-qwen-on-llama-pretrained",
+            "results/_ablations/qwen_on_llama_full_finetuning/experiment1",
         )
         self.assertEqual(resolved["subset"], source.subset_kwargs())
         self.assertEqual(resolved["train"]["train_model"], "Qwen/Qwen3.5-9B")

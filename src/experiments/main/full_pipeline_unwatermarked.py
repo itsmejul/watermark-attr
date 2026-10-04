@@ -2,7 +2,7 @@
 original unwatermarked abstracts. 
 The verification keys (k_p) stay the same.
 
-Adapters are saved at lora_adapters/{sample_type}_unwatermarked/... and
+Adapters are saved below lora_adapters/_ablations/{sample_type}_unwatermarked/... and
 results at results/{experiment_dir}/{prompt_type}_unwatermarked/....
 """
 
@@ -48,8 +48,9 @@ sample_type = args.sample_type
 n_eval_samples = int(args.n_eval_samples)
 experiment_dir = {"abstracts_only": "experiment1", "abstracts_and_titles": "experiment2",
                   "questions": "experiment3"}[sample_type]
+experiment_dir = "_controls/llama_unwatermarked"
 
-config = load_path_file(["lora_adapters", sample_type], "train_config.json")
+config = load_path_file(["lora_adapters", "configs"], f"{sample_type}.json")
 config["batch_size"] = int(args.batch_size)
 batch_size = int(args.batch_size)
 if args.n_samples == "":
@@ -95,7 +96,8 @@ if n_samples == -1:
     n_samples = 63800
 
 adapter_sample_type = f"{sample_type}_unwatermarked"
-adapter_save_path = ["lora_adapters", adapter_sample_type, str(n_samples), str(batch_size)]
+adapter_save_path = ["lora_adapters", "_ablations", adapter_sample_type,
+                     str(n_samples), str(batch_size)]
 
 model_name = config["train_model"]
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -139,7 +141,7 @@ else:
 
 
 generation_config = load_path_file(["data"], "generation_config.json")
-train_config = load_path_file(["lora_adapters", sample_type], "train_config.json")
+train_config = load_path_file(["lora_adapters", "configs"], f"{sample_type}.json")
 watermark_config = load_path_file(["data", "t_ws"], "config_llama.json")
 config = generation_config | train_config | watermark_config
 
@@ -208,7 +210,7 @@ def ask_and_verify(prompt_type, sub_experiment_name):
         eval_prompts,
         config,
         experiment_path=responses_path,
-        lora_adapter_path=["lora_adapters", adapter_sample_type, str(n_samples),
+        lora_adapter_path=["lora_adapters", "_ablations", adapter_sample_type, str(n_samples),
                            str(batch_size), sub_experiment_name],
         add_special_tokens=add_special,
     )

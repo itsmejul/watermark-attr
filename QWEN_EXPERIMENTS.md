@@ -17,12 +17,12 @@ python -m src.experiments.main.full_pipeline_pretrained \
   1000 abstracts_only 32 1000 --profile qwen --preflight
 
 sbatch --time=20:00:00 --job-name=qwen-full-1000 \
-  scripts/launch_capella_qwen.sh src.experiments.main.full_pipeline_pretrained \
+  scripts/launch_capella.sh src.experiments.main.full_pipeline_pretrained \
   1000 abstracts_only 32 1000 --profile qwen --train-only
 ```
 
 The full-parameter arm writes models below `full_models/qwen/` and results below
-`results/experimentN-qwen-pretrained/`; it never reads or writes LoRA adapter or
+`results/_ablations/qwen_full_finetuning/experimentN/`; it never reads or writes LoRA adapter or
 LoRA result directories. Epoch models live at `<run>/<epoch>/model/`, while the
 latest optimizer/scheduler/RNG state lives below `<run>/resume_checkpoints/`.
 Use `--resume` after a stopped job and `--eval-only` to run generation and
@@ -67,7 +67,7 @@ also creates it. Existing jobs/logs are not moved; GPU utilization logs stay in 
 
 - Qwen watermarked targets: `data/t_ws/qwen/combined_t_ws.json`.
 - Qwen prefixes/control prefixes/open prefixes: `data/prompts/qwen/`.
-- Results: `results/experiment{1,2,3}-qwen/`; adapter root: `lora_adapters/qwen/`.
+- Results: `results/qwen/experiment{1,2,3}/`; adapter root: `lora_adapters/qwen/`.
   Controls retain the `_unwatermarked` variant suffix inside those roots.
 - Qwen chat templates always receive `enable_thinking=False`. Experiment 1
   remains raw-text completion, not a new chat/reasoning task.
@@ -165,15 +165,15 @@ per prompt variant. Includes training, saving/reloading adapters, and verificati
 export RUN_VENV_DIR="$PWD/.venv-experiment"
 for experiment in abstracts_only abstracts_and_titles questions; do
   sbatch --time=02:00:00 --job-name="qwen-smoke-${experiment}" \
-    scripts/launch_capella_qwen.sh src.experiments.main.full_pipeline \
+    scripts/launch_capella.sh src.experiments.main.full_pipeline \
     100 "$experiment" 32 5 --profile qwen --smoke
 done
 ```
 
-On HoreKa substitute `scripts/launch_horeka_green.sh`. The production partition
+On HoreKa substitute `scripts/launch_horeka.sh`. The production partition
 is `accelerated`; for a short development test use
 `--partition=dev_accelerated --time=01:00:00` instead. Compilation may make the
-first training run slow. Smoke data goes to `results/experimentN-qwen-smoke/`
+first training run slow. Smoke data goes to `results/qwen/experimentN-smoke/`
 and `lora_adapters/qwen/smoke/`, never the production directories.
 
 Check Slurm `COMPLETED`/exit `0:0`, finite training/eval losses, nonempty answers,
@@ -185,9 +185,9 @@ Local checks do not substitute for these GPU tests.
 After the smoke tests pass:
 
 ```bash
-bash scripts/submit_qwen_experiments.sh capella
+bash scripts/submit/submit_qwen_experiments.sh capella
 # Or:
-bash scripts/submit_qwen_experiments.sh horeka-green
+bash scripts/submit/submit_qwen_experiments.sh horeka
 ```
 
 The helper preflights all configurations before submitting. It uses batch 32,
@@ -200,7 +200,7 @@ the last two. Every-fifth-epoch analysis adapters remain separately saved. To
 continue a timed-out job, resubmit the **same configuration** with `--resume`:
 
 ```bash
-sbatch scripts/launch_capella_qwen.sh src.experiments.main.full_pipeline \
+sbatch scripts/launch_capella.sh src.experiments.main.full_pipeline \
   50000 questions 32 1000 --profile qwen --resume
 ```
 
@@ -239,13 +239,13 @@ After pulling this branch, run this block from the repository root on Capella:
     lora_adapters/qwen/abstracts_only \
     lora_adapters/qwen/abstracts_and_titles \
     lora_adapters/qwen/questions \
-    results/experiment1-qwen/prefix_10 \
-    results/experiment2-qwen/titles \
-    results/experiment2-qwen/titles_1 \
-    results/experiment2-qwen/titles_2 \
-    results/experiment2-qwen/titles_3 \
-    results/experiment3-qwen/train_questions \
-    results/experiment3-qwen/held_out_questions
+    results/qwen/experiment1/prefix_10 \
+    results/qwen/experiment2/titles \
+    results/qwen/experiment2/titles_1 \
+    results/qwen/experiment2/titles_2 \
+    results/qwen/experiment2/titles_3 \
+    results/qwen/experiment3/train_questions \
+    results/qwen/experiment3/held_out_questions
   do
     if [[ -d "$old_path" ]]; then
       mkdir -p "$restart_archive/$(dirname "$old_path")"
@@ -264,7 +264,7 @@ exercises a full inference batch of 64. It is a real 100-epoch production run:
 export RUN_VENV_DIR="$PWD/.venv-experiment"
 mkdir -p job_outputs
 sbatch --job-name=qwen-h100-check-exp2-100 \
-  scripts/launch_capella_qwen.sh src.experiments.main.full_pipeline \
+  scripts/launch_capella.sh src.experiments.main.full_pipeline \
   100 abstracts_and_titles 32 1000 --profile qwen
 ```
 
@@ -280,7 +280,7 @@ for experiment in abstracts_only abstracts_and_titles questions; do
       continue
     fi
     sbatch --job-name="qwen-${experiment}-${size}" \
-      scripts/launch_capella_qwen.sh src.experiments.main.full_pipeline \
+      scripts/launch_capella.sh src.experiments.main.full_pipeline \
       "$size" "$experiment" 32 1000 --profile qwen
   done
 done
@@ -297,11 +297,11 @@ launcher for GPU tasks). Keep `RUN_VENV_DIR` exported as above:
 
 ```bash
 # Unwatermarked training control
-sbatch scripts/launch_capella_qwen.sh src.experiments.main.full_pipeline_unwatermarked \
+sbatch scripts/launch_capella.sh src.experiments.main.full_pipeline_unwatermarked \
   1000 abstracts_only 32 1000 --profile qwen
 
 # Open-keyspace evaluation, after the corresponding main job finishes
-sbatch scripts/launch_capella_qwen.sh src.experiments.main.open_keyspace_eval \
+sbatch scripts/launch_capella.sh src.experiments.main.open_keyspace_eval \
   1000 abstracts_only 32 1000 --profile qwen
 # Add --unwatermarked to evaluate the corresponding control adapters instead.
 
@@ -311,20 +311,20 @@ python -m src.experiments.main.compute_t_w_bigrams --profile qwen
 python -m src.experiments.main.baseline_t_w_verification 1000 1 --profile qwen
 
 # All completed main configurations; best and final epoch by default
-sbatch scripts/launch_capella_qwen.sh src.experiments.main.similarity_eval \
+sbatch scripts/launch_capella.sh src.experiments.main.similarity_eval \
   --profile qwen --metrics bm25 cosine bertscore bigram lcs --sweep --skip-existing
 # Add --all-epochs for every saved epoch (consider separate jobs per configuration).
 
 # Control similarity, compared to original abstracts
-sbatch scripts/launch_capella_qwen.sh src.experiments.main.similarity_eval \
+sbatch scripts/launch_capella.sh src.experiments.main.similarity_eval \
   --profile qwen --unwatermarked --n_samples 1000 --sample_type abstracts_only \
   --batch_size 32 --metrics bm25 cosine lcs --target original
 
 # Optional: title perturbation similarity is model-independent; same inputs as Llama
-sbatch scripts/launch_capella_qwen.sh src.experiments.main.perturbed_titles_similarity --profile qwen
+sbatch scripts/launch_capella.sh src.experiments.main.perturbed_titles_similarity --profile qwen
 ```
 
-The last command writes `results/perturbed_titles_similarity-qwen/`; recomputing
+The last command writes `results/auxiliary/perturbed_titles_similarity-qwen/`; recomputing
 it is optional because the title texts did not change. Ablation experiments
 remain legacy-only; this migration targets the three main experiments/controls.
 
@@ -340,7 +340,7 @@ training environment.
 Its outputs cannot collide with either main arm:
 
 - adapters: `lora_adapters/qwen_on_llama/{sample_type}/{size}/{batch}/`
-- results: `results/experimentN-qwen-on-llama/{prompt_type}/{size}/{batch}/{epoch}/`
+- results: `results/qwen_on_llama/experimentN/{prompt_type}/{size}/{batch}/{epoch}/`
 
 Run a small diagnostic first:
 
@@ -349,7 +349,7 @@ python -m src.experiments.main.qwen_on_llama_pipeline \
   100 abstracts_only 32 100 --preflight
 
 sbatch --job-name=qwen-llamawm-exp1-100 \
-  scripts/launch_capella_qwen.sh src.experiments.main.qwen_on_llama_pipeline \
+  scripts/launch_capella.sh src.experiments.main.qwen_on_llama_pipeline \
   100 abstracts_only 32 100
 ```
 
@@ -358,7 +358,7 @@ The module accepts the same `--smoke`, `--train-only`, `--eval-only`,
 submit the complete 18-run matrix after the diagnostic succeeds:
 
 ```bash
-bash scripts/submit_qwen_on_llama_experiments.sh capella
+bash scripts/submit/submit_qwen_on_llama_experiments.sh capella
 ```
 
 ## Notebooks and checks

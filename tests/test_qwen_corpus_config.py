@@ -4,6 +4,11 @@ import unittest
 
 
 class QwenCorpusConfigTests(unittest.TestCase):
+    def test_llama_top_k_is_explicit_and_matches_the_historical_default(self):
+        repo = Path(__file__).resolve().parents[1]
+        config = json.loads((repo / "data/t_ws/config_llama.json").read_text())
+        self.assertEqual(config["top_k_watermark"], 50)
+
     def test_kappa4_lengthfix_corpus_is_complete_and_isolated(self):
         repo = Path(__file__).resolve().parents[1]
         config = json.loads(

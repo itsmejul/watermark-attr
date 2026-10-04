@@ -148,14 +148,23 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     if args.smoke:
         config.update(epochs=1, save_every_n_epochs=1)
     cross_model_name = "qwen_on_llama" + (f"_{experiment_variant}" if experiment_variant else "")
-    adapter = ((["lora_adapters", cross_model_name, args.sample_type]
+    cross_adapter_root = (["lora_adapters", "_ablations", cross_model_name, args.sample_type]
+                          if experiment_variant else
+                          ["lora_adapters", cross_model_name, args.sample_type])
+    adapter = ((cross_adapter_root
                 if cross_model else source_profile.adapter_root(args.sample_type, unwm))
                + [str(args.n_samples), str(args.batch_size)])
-    result_dir = (f"experiment{SAMPLE_TYPES.index(args.sample_type) + 1}-qwen-on-llama"
-                  + (f"-{experiment_variant}" if experiment_variant else "")
-                  if cross_model else source_profile.experiment_dir(args.sample_type))
+    experiment = f"experiment{SAMPLE_TYPES.index(args.sample_type) + 1}"
+    if experiment_variant:
+        result_dir = f"_ablations/{cross_model_name}/{experiment}"
+    elif cross_model:
+        result_dir = ExperimentProfile("qwen_on_llama").experiment_dir(args.sample_type)
+    else:
+        result_dir = source_profile.experiment_dir(args.sample_type)
+    if unwm:
+        result_dir = f"_controls/{watermark_source}_unwatermarked"
     if args.smoke:
-        adapter.insert(2, "smoke")
+        adapter.insert(len(adapter) - 3, "smoke")
         result_dir += "-smoke"
     # Watermark sampling fields have a _watermark suffix. Evaluation retains
     # generation_config's greedy decoding; the two settings must stay separate.

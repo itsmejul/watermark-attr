@@ -55,7 +55,7 @@ Use `.venv-experiment` for:
 
 Submission helpers default to their correct environment; `RUN_VENV_DIR` can
 override that default. For a direct Slurm call through
-`scripts/launch_capella_qwen.sh` or `scripts/launch_horeka_green.sh`, select it
+`scripts/launch_capella.sh` or `scripts/launch_horeka.sh`, select it
 explicitly:
 
 ```bash
@@ -69,18 +69,40 @@ Examples:
 ```bash
 # Watermark corpus generation
 export RUN_VENV_DIR="$PWD/.venv-watermark"
-sbatch scripts/launch_capella_qwen.sh src.data_creation.create_t_ws 1 \
+sbatch scripts/launch_capella.sh src.data_creation.create_t_ws 1 \
   --config data/t_ws/config_qwen.json
 
 # Maintained Qwen-on-Qwen grid
 export RUN_VENV_DIR="$PWD/.venv-experiment"
-bash scripts/submit_qwen_experiments.sh capella --resume
+bash scripts/submit/submit_qwen_experiments.sh capella --resume
 
 # Maintained Llama grid
-bash scripts/submit_llama_eosfix_experiments.sh capella
+bash scripts/submit/submit_llama_experiments.sh capella
 
 # One direct evaluation command
 export RUN_VENV_DIR="$PWD/.venv-experiment"
-sbatch scripts/launch_capella_qwen.sh src.experiments.main.similarity_eval \
+sbatch scripts/launch_capella.sh src.experiments.main.similarity_eval \
   --profile qwen --metrics cosine lcs --sweep --skip-existing
 ```
+
+## Result layout
+
+The three maintained publication grids are deliberately parallel:
+
+```text
+results/
+├── llama/experiment{1,2,3}/
+├── qwen/experiment{1,2,3}/
+├── qwen_on_llama/experiment{1,2,3}/
+├── _controls/llama_unwatermarked/
+├── _ablations/
+│   ├── watermark/
+│   ├── qwen_on_llama_batch64/
+│   └── qwen_on_llama_full_finetuning/
+├── auxiliary/
+└── _incoming_hpc/       # temporary staging for selective syncs
+```
+
+Never use `rsync --delete` when syncing into `_incoming_hpc`. Move a verified
+run from staging into its matching maintained grid only after the transfer is
+complete.

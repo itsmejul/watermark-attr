@@ -1,13 +1,13 @@
 #!/bin/bash -l
-#SBATCH --job-name=watermark-qwen
-#SBATCH --partition=gpu-h100
+#SBATCH --job-name=watermark-horeka
+#SBATCH --partition=accelerated
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32
+#SBATCH --cpus-per-task=19
 #SBATCH --gres=gpu:1
-#SBATCH --mem=192000mb
+#SBATCH --mem=124375mb
 #SBATCH --time=2-00:00:00
-#SBATCH --export=NONE
+#SBATCH --export=ALL
 #SBATCH --output=/hkfs/work/workspace/scratch/id_qry6439-watermark_paper/watermark-attr/job_outputs/slurm-%x-%j.out
 #SBATCH --error=/hkfs/work/workspace/scratch/id_qry6439-watermark_paper/watermark-attr/job_outputs/slurm-%x-%j.err
 
@@ -35,7 +35,6 @@ shift
 
 if [[ ! -d "${PROJECT_DIR}" ]]; then
     echo "Project directory not found: ${PROJECT_DIR}" >&2
-    echo "On HoreKa 2, check whether /hkfs is mounted or migrate the workspace to /hfs2." >&2
     exit 1
 fi
 
@@ -57,6 +56,13 @@ export TOKENIZERS_PARALLELISM=false
 export HF_HOME="${WORKSPACE_DIR}/.cache/huggingface"
 export TORCH_HOME="${WORKSPACE_DIR}/.cache/torch"
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+export TORCHINDUCTOR_CACHE_DIR="${PROJECT_DIR}/.cache/torchinductor-${SLURM_JOB_ID}"
+export UNSLOTH_COMPILE_LOCATION="${PROJECT_DIR}/.cache/unsloth-${SLURM_JOB_ID}"
+
+if [[ -z "${CUDA_VISIBLE_DEVICES:-}" ]]; then
+    echo "CUDA_VISIBLE_DEVICES is empty; Slurm did not expose the requested GPU." >&2
+    exit 1
+fi
 
 NVIDIA_SMI_PID=""
 cleanup() {
@@ -69,6 +75,9 @@ trap cleanup EXIT
 
 echo "Job ID: ${SLURM_JOB_ID}"
 echo "Node: ${SLURMD_NODENAME:-unknown}"
+echo "Partition: ${SLURM_JOB_PARTITION:-unknown}"
+echo "Account: ${SLURM_JOB_ACCOUNT:-unknown}"
+echo "CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}"
 echo "Python executable: $(command -v python)"
 echo "Python: $(python --version 2>&1)"
 echo "Module: ${RUN_SCRIPT}"

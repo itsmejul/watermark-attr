@@ -16,7 +16,7 @@ class SubmissionTests(unittest.TestCase):
             (root / config_name).write_text("{}")
             (root / "data/keys.json").write_text("{}")
             submit_script = str(
-                repo / "scripts/submit_qwen_corpus.sh"
+                repo / "scripts/submit/submit_qwen_corpus.sh"
             )
             bin_dir = root / "bin"
             bin_dir.mkdir()
@@ -52,7 +52,7 @@ class SubmissionTests(unittest.TestCase):
                 )
             self.assertTrue(all("qwen-wm-k4-b" in job for job in jobs))
 
-    def test_qwen_lengthfix_helper_submits_six_isolated_conditions(self):
+    def test_qwen_lengthfix_helper_submits_eight_isolated_conditions(self):
         repo = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -60,7 +60,7 @@ class SubmissionTests(unittest.TestCase):
             (root / "data/t_ws/config_qwen.json").write_text("{}")
             (root / "data/keys.json").write_text("{}")
             submit_script = str(
-                repo / "scripts/submit_qwen_strength_lengthfix_ablation.sh"
+                repo / "scripts/ablations/submit_qwen_watermark_strength.sh"
             )
             bin_dir = root / "bin"
             bin_dir.mkdir()
@@ -88,52 +88,9 @@ class SubmissionTests(unittest.TestCase):
                 text=True,
             )
             jobs = log.read_text().splitlines()
-            self.assertEqual(len(jobs), 6)
+            self.assertEqual(len(jobs), 8)
             self.assertTrue(all("--token-length-limit" in line for line in jobs))
             self.assertTrue(all("qwen-lenfix-k" in line for line in jobs))
-
-    def test_qwen_strength_helper_submits_six_unfiltered_conditions(self):
-        repo = Path(__file__).resolve().parents[1]
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / "data/t_ws").mkdir(parents=True)
-            (root / "data/t_ws/config_qwen.json").write_text("{}")
-            (root / "data/keys.json").write_text("{}")
-            submit_script = str(repo / "scripts/submit_qwen_strength_ablation.sh")
-            bin_dir = root / "bin"
-            bin_dir.mkdir()
-            python = bin_dir / "python"
-            python.write_text('#!/bin/bash\nexit 0\n')
-            python.chmod(0o755)
-            sbatch = bin_dir / "sbatch"
-            sbatch.write_text(
-                '#!/bin/bash\nprintf "%s\\n" "$*" >> "$SUBMISSION_TEST_LOG"\n'
-            )
-            sbatch.chmod(0o755)
-            log = root / "jobs.txt"
-            env = {**os.environ, "RUN_VENV_DIR": str(root),
-                   "SUBMISSION_TEST_LOG": str(log),
-                   "PATH": str(bin_dir) + os.pathsep + os.environ["PATH"]}
-            subprocess.run(["bash", submit_script, "capella"], cwd=root, env=env,
-                           check=True, capture_output=True, text=True)
-            jobs = log.read_text().splitlines()
-            self.assertEqual(len(jobs), 6)
-            for kappa in (2, 4, 6, 8, 10, 12):
-                expected = (f"qwen_kappa_ablation {kappa} --temperature 1.0 "
-                            "--top-p 1.0 --top-k 0")
-                self.assertEqual(sum(expected in line for line in jobs), 1)
-
-            completed = (root / "results/ablations/qwen_sampling_source/"
-                         "kappa_6__temperature_1__top_p_1__top_k_0")
-            completed.mkdir(parents=True)
-            (completed / "summary.json").write_text("{}")
-            log.unlink()
-            subprocess.run(["bash", submit_script, "capella"], cwd=root, env=env,
-                           check=True, capture_output=True, text=True)
-            resumed_jobs = log.read_text().splitlines()
-            self.assertEqual(len(resumed_jobs), 5)
-            self.assertFalse(any("qwen_kappa_ablation 6 " in line
-                                 for line in resumed_jobs))
 
     def test_llama_eosfix_additional_helper_repairs_missing_run_then_metrics(self):
         repo = Path(__file__).resolve().parents[1]
@@ -141,7 +98,7 @@ class SubmissionTests(unittest.TestCase):
             root = Path(tmp)
             (root / "data/t_ws/llama").mkdir(parents=True)
             (root / "data/t_ws/llama/combined_t_ws.json").write_text("[]")
-            submit_script = str(repo / "scripts/submit_llama_eosfix_additional_evals.sh")
+            submit_script = str(repo / "scripts/submit/submit_llama_additional_evals.sh")
             bin_dir = root / "bin"
             bin_dir.mkdir()
             python = bin_dir / "python"
@@ -177,7 +134,7 @@ class SubmissionTests(unittest.TestCase):
             (root / "data/t_ws/llama").mkdir(parents=True)
             (root / "data/t_ws/config_llama.json").write_text("{}")
             (root / "data/t_ws/llama/combined_t_ws.json").write_text("[]")
-            submit_script = str(repo / "scripts/submit_llama_eosfix_experiments.sh")
+            submit_script = str(repo / "scripts/submit/submit_llama_experiments.sh")
             bin_dir = root / "bin"
             bin_dir.mkdir()
             python = bin_dir / "python"
@@ -199,7 +156,7 @@ class SubmissionTests(unittest.TestCase):
                     expected = ("full_pipeline_llama_eosfix "
                                 f"{n} {sample_type} 32 1000")
                     self.assertEqual(sum(expected in line for line in jobs), 1)
-            self.assertTrue(all("launch_capella_qwen.sh" in line for line in jobs))
+            self.assertTrue(all("launch_capella.sh" in line for line in jobs))
 
     def test_qwen_on_llama_additional_eval_helper_submits_split_metric_jobs(self):
         repo = Path(__file__).resolve().parents[1]
@@ -208,7 +165,7 @@ class SubmissionTests(unittest.TestCase):
             (root / "data/t_ws/llama").mkdir(parents=True)
             (root / "data/experiment_config_qwen.json").write_text("{}")
             (root / "data/t_ws/llama/combined_t_ws.json").write_text("[]")
-            submit_script = str(repo / "scripts/submit_qwen_on_llama_additional_evals.sh")
+            submit_script = str(repo / "scripts/submit/submit_qwen_on_llama_additional_evals.sh")
             bin_dir = root / "bin"
             bin_dir.mkdir()
             python = bin_dir / "python"
@@ -244,7 +201,7 @@ class SubmissionTests(unittest.TestCase):
             (root / "data/t_ws/qwen/combined_t_ws.json").write_text("[]")
             (root / "data/t_ws/qwen/combined_manifest.json").write_text("{}")
             (root / "data/prompts/qwen/prefix_10.json").write_text("[]")
-            submit_script = str(repo / "scripts/submit_qwen_experiments.sh")
+            submit_script = str(repo / "scripts/submit/submit_qwen_experiments.sh")
             bin_dir = root / "bin"
             bin_dir.mkdir()
             python = bin_dir / "python"
@@ -281,7 +238,7 @@ class SubmissionTests(unittest.TestCase):
             (root / "data/t_ws/qwen/combined_manifest.json").write_text("{}")
             (root / "data/prompts/qwen/prefix_10.json").write_text("[]")
             submit_script = str(
-                repo / "scripts/submit_qwen_experiments.sh"
+                repo / "scripts/submit/submit_qwen_experiments.sh"
             )
             bin_dir = root / "bin"
             bin_dir.mkdir()
@@ -330,7 +287,7 @@ class SubmissionTests(unittest.TestCase):
             (root / "data/t_ws/llama").mkdir(parents=True)
             (root / "data/experiment_config_qwen.json").write_text("{}")
             (root / "data/t_ws/llama/combined_t_ws.json").write_text("[]")
-            submit_script = str(repo / "scripts/submit_qwen_on_llama_batch64_experiments.sh")
+            submit_script = str(repo / "scripts/ablations/submit_qwen_on_llama_batch64.sh")
             bin_dir = root / "bin"
             bin_dir.mkdir()
             python = bin_dir / "python"

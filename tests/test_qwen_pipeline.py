@@ -115,7 +115,8 @@ class PipelineTests(unittest.TestCase):
                 self.run_pipeline("open", sample_type)
                 self.assertEqual(len(self.calls["ask"]), n_ask + len(prompts))
                 for path, adapter, _ in self.calls["ask"]:
-                    self.assertIn("-qwen-smoke", path[1])
+                    self.assertIn("qwen/experiment", path[1])
+                    self.assertTrue(path[1].endswith("-smoke"))
                     self.assertEqual(adapter[:3], ["lora_adapters", "qwen", "smoke"])
 
     def test_control_uses_original_training_texts_and_separate_paths(self):
@@ -144,7 +145,7 @@ class PipelineTests(unittest.TestCase):
     def test_qwen_on_llama_run_uses_separate_paths_and_legacy_detector(self):
         self.run_pipeline(watermark_source="llama")
         path, adapter, _ = self.calls["ask"][0]
-        self.assertEqual(path[1], "experiment1-qwen-on-llama-smoke")
+        self.assertEqual(path[1], "qwen_on_llama/experiment1-smoke")
         self.assertEqual(adapter[:3], ["lora_adapters", "qwen_on_llama", "smoke"])
         self.assertTrue(self.calls["verify"][0][2]["legacy_fourier"])
         manifest = json.loads((self.root / "lora_adapters/qwen_on_llama/smoke/abstracts_only/10/32/run_manifest.json").read_text())
@@ -154,7 +155,7 @@ class PipelineTests(unittest.TestCase):
     def test_kappa4_lengthfix_run_uses_separate_qwen_on_qwen_paths(self):
         self.run_pipeline(watermark_source="qwen")
         path, adapter, _ = self.calls["ask"][0]
-        self.assertEqual(path[1], "experiment1-qwen-smoke")
+        self.assertEqual(path[1], "qwen/experiment1-smoke")
         self.assertEqual(
             adapter[:3], ["lora_adapters", "qwen", "smoke"]
         )
@@ -172,10 +173,13 @@ class PipelineTests(unittest.TestCase):
         self.run_pipeline(watermark_source="llama", batch_size="64",
                           experiment_variant="batch64")
         path, adapter, _ = self.calls["ask"][0]
-        self.assertEqual(path[1], "experiment1-qwen-on-llama-batch64-smoke")
-        self.assertEqual(adapter[:3], ["lora_adapters", "qwen_on_llama_batch64", "smoke"])
+        self.assertEqual(path[1], "_ablations/qwen_on_llama_batch64/experiment1-smoke")
+        self.assertEqual(
+            adapter[:4],
+            ["lora_adapters", "_ablations", "qwen_on_llama_batch64", "smoke"],
+        )
         self.assertEqual(adapter[-2:], ["64", "1"])
-        manifest_path = (self.root / "lora_adapters/qwen_on_llama_batch64/smoke/"
+        manifest_path = (self.root / "lora_adapters/_ablations/qwen_on_llama_batch64/smoke/"
                          "abstracts_only/10/64/run_manifest.json")
         manifest = json.loads(manifest_path.read_text())
         self.assertEqual(manifest["profile"], "qwen_on_llama_batch64")

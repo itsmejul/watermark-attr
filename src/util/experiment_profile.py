@@ -80,20 +80,27 @@ class ExperimentProfile:
                     keys_path="data/keys.json", prompts_path=self.prompt_path(filename))
 
     def experiment_dir(self, sample_type):
-        return f"experiment{SAMPLE_TYPES.index(sample_type) + 1}{self.suffix}"
+        experiment = f"experiment{SAMPLE_TYPES.index(sample_type) + 1}"
+        namespace = {
+            "llama": "_legacy/llama_pre_eosfix",
+            "llama_eosfix": "llama",
+            "qwen": "qwen",
+            "qwen_on_llama": "qwen_on_llama",
+        }[self.name]
+        return f"{namespace}/{experiment}"
 
     def adapter_root(self, sample_type, unwatermarked=False):
         name = sample_type + ("_unwatermarked" if unwatermarked else "")
         namespace = {
-            "llama": [],
-            "llama_eosfix": ["llamaeosfix"],
+            "llama": ["_legacy", "llama"],
+            "llama_eosfix": ["llama"],
             "qwen": ["qwen"],
             "qwen_on_llama": ["qwen_on_llama"],
         }[self.name]
         return ["lora_adapters", *namespace, name]
 
     def train_config(self, sample_type):
-        path = REPO_ROOT / "lora_adapters" / sample_type / "train_config.json"
+        path = REPO_ROOT / "lora_adapters" / "configs" / f"{sample_type}.json"
         config = json.loads(path.read_text())
         if self.is_qwen_trained:
             overrides = json.loads((REPO_ROOT / "data/experiment_config_qwen.json").read_text())
@@ -136,7 +143,7 @@ def dispatch_profile(mode):
         watermark_source = "llama" if args.profile == "qwen_on_llama" else args.profile
         main(mode, remaining, watermark_source=watermark_source)
         raise SystemExit(0)
-    if args.profile == "llama_eosfix" and mode == "watermarked":
+    if args.profile == "llama_eosfix" and mode in ("watermarked", "open"):
         remaining.append("--eos-fix")
     # Never silently re-score old corpora under the new Fourier convention.
     if not any(x in remaining for x in ("--help", "-h")):

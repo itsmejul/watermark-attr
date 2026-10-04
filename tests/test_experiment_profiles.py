@@ -24,8 +24,10 @@ class ProfileTests(unittest.TestCase):
         p = ExperimentProfile()
         self.assertEqual(p.subset_kwargs(), dict(texts_path="data/t_ws/llama/combined_t_ws.json",
                          keys_path="data/keys.json", prompts_path="data/prompts/llama/prefix_10.json"))
-        self.assertEqual(p.adapter_root("questions"), ["lora_adapters", "questions"])
-        self.assertEqual(p.experiment_dir("questions"), "experiment3")
+        self.assertEqual(p.adapter_root("questions"),
+                         ["lora_adapters", "_legacy", "llama", "questions"])
+        self.assertEqual(p.experiment_dir("questions"),
+                         "_legacy/llama_pre_eosfix/experiment3")
 
     def test_modern_llama_eosfix_accepts_new_waterfall_without_changing_legacy_default(self):
         p = ExperimentProfile("llama")
@@ -37,9 +39,9 @@ class ProfileTests(unittest.TestCase):
         eos = ExperimentProfile("llama_eosfix")
         self.assertTrue(eos.uses_50000_grid)
         self.assertEqual(eos.experiment_dir("abstracts_and_titles"),
-                         "experiment2-llamaeosfix")
+                         "llama/experiment2")
         self.assertEqual(eos.adapter_root("abstracts_only"),
-                         ["lora_adapters", "llamaeosfix", "abstracts_only"])
+                         ["lora_adapters", "llama", "abstracts_only"])
         self.assertEqual(eos.corpus_dir, "data/t_ws/llama")
         with patch("src.util.experiment_profile.version", return_value="0.3.4"):
             eos.check_waterfall()
@@ -54,7 +56,7 @@ class ProfileTests(unittest.TestCase):
                     pipeline.main("watermarked", [str(n), sample_type, "32", "--dry-run"])
                 resolved = json.loads(output.getvalue())
                 roots.add(resolved["adapters"])
-                self.assertIn("-qwen", resolved["results"])
+                self.assertIn("results/qwen/", resolved["results"])
                 self.assertEqual(resolved["subset"]["texts_path"],
                                  "data/t_ws/qwen/combined_t_ws.json")
                 self.assertEqual(resolved["train"]["epochs"], 100)
@@ -99,7 +101,7 @@ class ProfileTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     resolved["results"],
-                    f"results/experiment{SAMPLE_TYPES.index(sample_type) + 1}-qwen",
+                    f"results/qwen/experiment{SAMPLE_TYPES.index(sample_type) + 1}",
                 )
                 self.assertIn(
                     "data/t_ws/qwen/combined_t_ws.json",
@@ -124,7 +126,7 @@ class ProfileTests(unittest.TestCase):
         resolved = json.loads(output.getvalue())
         self.assertEqual(resolved["mode"], "qwen_on_llama_watermarked")
         self.assertEqual(resolved["adapters"], "lora_adapters/qwen_on_llama/questions/1000/32")
-        self.assertEqual(resolved["results"], "results/experiment3-qwen-on-llama")
+        self.assertEqual(resolved["results"], "results/qwen_on_llama/experiment3")
         self.assertEqual(resolved["subset"]["texts_path"], "data/t_ws/llama/combined_t_ws.json")
         self.assertEqual(resolved["subset"]["prompts_path"], "data/prompts/llama/prefix_10.json")
         self.assertEqual(resolved["detector_model"], "meta-llama/Llama-3.1-8B-Instruct")
@@ -132,7 +134,7 @@ class ProfileTests(unittest.TestCase):
 
         p = ExperimentProfile("qwen_on_llama")
         self.assertTrue(p.is_qwen_trained)
-        self.assertEqual(p.experiment_dir("questions"), "experiment3-qwen-on-llama")
+        self.assertEqual(p.experiment_dir("questions"), "qwen_on_llama/experiment3")
         self.assertEqual(p.adapter_root("questions"), ["lora_adapters", "qwen_on_llama", "questions"])
         self.assertEqual(p.corpus_dir, "data/t_ws/llama")
         self.assertEqual(p.prompts_dir, "data/prompts/llama")
@@ -148,7 +150,7 @@ class ProfileTests(unittest.TestCase):
         resolved = json.loads(output.getvalue())
         self.assertEqual(resolved["mode"], "qwen_on_llama_open")
         self.assertEqual(resolved["adapters"], "lora_adapters/qwen_on_llama/abstracts_only/1000/32")
-        self.assertEqual(resolved["results"], "results/experiment1-qwen-on-llama")
+        self.assertEqual(resolved["results"], "results/qwen_on_llama/experiment1")
 
     def test_qwen_on_llama_batch64_arm_doubles_accumulation_and_isolates_outputs(self):
         for sample_type, expected_micro, expected_accumulation in (
@@ -164,12 +166,12 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual(resolved["mode"], "qwen_on_llama_batch64_watermarked")
             self.assertEqual(
                 resolved["adapters"],
-                f"lora_adapters/qwen_on_llama_batch64/{sample_type}/1000/64",
+                f"lora_adapters/_ablations/qwen_on_llama_batch64/{sample_type}/1000/64",
             )
             experiment = SAMPLE_TYPES.index(sample_type) + 1
             self.assertEqual(
                 resolved["results"],
-                f"results/experiment{experiment}-qwen-on-llama-batch64",
+                f"results/_ablations/qwen_on_llama_batch64/experiment{experiment}",
             )
             self.assertEqual(resolved["train"]["batch_size"], 64)
             self.assertEqual(resolved["train"]["micro_batch_size"], expected_micro)
@@ -223,23 +225,24 @@ class ProfileTests(unittest.TestCase):
         try:
             sim.configure_profile("qwen")
             self.assertEqual(sim.SAMPLE_SIZES, QWEN_SIZES)
-            self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"], "experiment1-qwen")
+            self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"], "qwen/experiment1")
             self.assertIn("data/t_ws/qwen", str(sim.BIGRAMS_NPZ))
             self.assertEqual(sim.TOKENIZER_NAME, "Qwen/Qwen3.5-9B")
             sim.configure_profile("qwen_on_llama")
             self.assertEqual(sim.SAMPLE_SIZES, QWEN_SIZES)
-            self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"], "experiment1-qwen-on-llama")
+            self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"], "qwen_on_llama/experiment1")
             self.assertEqual(str(sim.BIGRAMS_NPZ), str(Path(__file__).resolve().parents[1] / "data/t_ws/llama/bigrams.npz"))
             self.assertEqual(sim.TOKENIZER_NAME, "meta-llama/Llama-3.1-8B-Instruct")
             sim.configure_profile("llama_eosfix")
             self.assertEqual(sim.SAMPLE_SIZES, QWEN_SIZES)
             self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"],
-                             "experiment1-llamaeosfix")
+                             "llama/experiment1")
             self.assertEqual(sim.TOKENIZER_NAME,
                              "meta-llama/Llama-3.1-8B-Instruct")
         finally:
             sim.configure_profile("llama")
-        self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"], "experiment1")
+        self.assertEqual(sim.EXPERIMENT_DIR["abstracts_only"],
+                         "_legacy/llama_pre_eosfix/experiment1")
 
     def test_bertscore_transformers5_roberta_compatibility(self):
         from src.experiments.main import similarity_eval as sim
@@ -298,10 +301,10 @@ class ProfileTests(unittest.TestCase):
         for experiment, path in enumerate(notebooks, 1):
             nb = json.loads(path.read_text())
             source = "".join("".join(c["source"]) for c in nb["cells"])
-            self.assertIn(f"experiment{experiment}-qwen-on-llama", source)
+            self.assertIn(f"qwen_on_llama/experiment{experiment}", source)
             self.assertIn("lora_adapters/qwen_on_llama/", source)
             self.assertIn("figures/results/qwen_on_llama/", source)
-            self.assertNotIn(f"experiment{experiment}-qwen\"", source)
+            self.assertNotIn(f"qwen/experiment{experiment}\"", source)
             if experiment == 1:
                 self.assertIn("OPEN_SAMPLE_SIZE = 1000", source)
                 self.assertIn("exp1_open_keyspace_n1000.pdf", source)
@@ -316,8 +319,8 @@ class ProfileTests(unittest.TestCase):
         for experiment, path in enumerate(notebooks, 1):
             nb = json.loads(path.read_text())
             source = "".join("".join(c["source"]) for c in nb["cells"])
-            self.assertIn(f"experiment{experiment}-llamaeosfix", source)
-            self.assertIn("lora_adapters/llamaeosfix/", source)
+            self.assertIn(f"llama/experiment{experiment}", source)
+            self.assertIn("lora_adapters/llama/", source)
             self.assertIn("figures/results/llamaeosfix/", source)
             self.assertNotIn("63800", source)
             for cell in nb["cells"]:

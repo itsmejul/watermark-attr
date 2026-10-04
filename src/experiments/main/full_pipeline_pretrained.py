@@ -106,11 +106,11 @@ def main(argv=None):
     model_root = ["full_models", model_namespace, args.sample_type,
                   str(args.n_samples), str(args.batch_size)]
     experiment_number = SAMPLE_TYPES.index(args.sample_type) + 1
-    result_dir = (
-        f"experiment{experiment_number}-qwen-on-llama-pretrained"
-        if cross_model
-        else f"experiment{experiment_number}-qwen-pretrained"
+    result_namespace = (
+        "qwen_on_llama_full_finetuning" if cross_model
+        else "qwen_full_finetuning"
     )
+    result_dir = f"_ablations/{result_namespace}/experiment{experiment_number}"
     if args.smoke:
         model_root.insert(2, "smoke")
         result_dir += "-smoke"

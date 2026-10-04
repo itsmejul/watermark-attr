@@ -108,7 +108,8 @@ def configure_profile(name):
     EXPERIMENT_DIR = {s: ACTIVE_PROFILE.experiment_dir(s) for s in SAMPLE_TYPES}
     SAMPLE_SIZES = (QWEN_SIZES if ACTIVE_PROFILE.uses_50000_grid
                     else (100, 500, 1000, 5000, 10000, 63800))
-    UNWM_EXPERIMENT_DIR = EXPERIMENT_DIR["abstracts_only"]
+    control_model = "qwen" if name == "qwen" else "llama"
+    UNWM_EXPERIMENT_DIR = f"_controls/{control_model}_unwatermarked"
     UNWM_PROMPTS_PATH = ACTIVE_PROFILE.prompt_path("prefix_10_unwatermarked.json")
 
 

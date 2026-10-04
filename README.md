@@ -32,6 +32,19 @@ data/t_ws/{llama,qwen}/      the two watermarked corpora
 data/t_ws/config_*.json      watermark-generation configs
 ```
 
+LoRA adapters use the corresponding canonical layout:
+
+```text
+lora_adapters/llama/          corrected Llama-on-Llama grid
+lora_adapters/qwen/           corrected Qwen-on-Qwen grid
+lora_adapters/qwen_on_llama/  corrected cross-model grid
+lora_adapters/configs/        shared task training configs
+lora_adapters/_ablations/     controls and optimization ablations
+```
+
+The historical pre-EOS-fix Llama pipeline writes below
+`lora_adapters/_legacy/llama/` if it is deliberately rerun.
+
 Download the unarXive open subset from https://zenodo.org/records/7752754 and
 extract it to `data/unarxive_open/`.  
 
@@ -81,7 +94,7 @@ so the later full batch-1 job resumes at text 51:
 
 ```bash
 sbatch --partition=dev_accelerated --time=01:00:00 \
-  scripts/launch_horeka_green.sh src.data_creation.create_t_ws 1 \
+  scripts/launch_horeka.sh src.data_creation.create_t_ws 1 \
   --config data/t_ws/config_qwen.json --limit 50
 ```
 
@@ -89,7 +102,7 @@ After checking the timing, submit the 13 corpus batches:
 
 ```bash
 for batch in $(seq 1 13); do
-  sbatch scripts/launch_horeka_green.sh src.data_creation.create_t_ws "$batch" \
+  sbatch scripts/launch_horeka.sh src.data_creation.create_t_ws "$batch" \
     --config data/t_ws/config_qwen.json
 done
 ```

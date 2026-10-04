@@ -2,7 +2,7 @@
 Computes cosine similarity between original titles and perturbed variants.
 
 Writes results (overall and per variant) to
-results/perturbed_titles_similarity/mpnet_similarity.json.
+results/auxiliary/perturbed_titles_similarity/mpnet_similarity.json.
 
 Usage:
     python -m src.experiments.main.perturbed_titles_similarity
@@ -106,11 +106,11 @@ def main():
                   overall["max"], overall["std"]))
 
     write_path_file(
-        ["results", "perturbed_titles_similarity" + profile.suffix],
+        ["results", "auxiliary", "perturbed_titles_similarity" + profile.suffix],
         "mpnet_similarity.json",
         result,
     )
-    print(f"\nwrote results/perturbed_titles_similarity{profile.suffix}/mpnet_similarity.json")
+    print(f"\nwrote results/auxiliary/perturbed_titles_similarity{profile.suffix}/mpnet_similarity.json")
 
 
 if __name__ == "__main__":

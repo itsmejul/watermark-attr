@@ -9,7 +9,8 @@ sample_type is one of abstracts_only, abstracts_and_titles, questions.
 --eval-only skips training and runs generation + verification on the
 adapters already saved under lora_adapters/.
 --eos-fix opts into terminal-EOS supervision and bounded EOS-aware generation,
-and writes to isolated llamaeosfix adapter/result directories.
+and writes adapters to the canonical Llama namespace and results to the
+historical ``*-llamaeosfix`` result namespace.
 """
 
 from src.util.experiment_profile import dispatch_profile
@@ -45,7 +46,7 @@ parser.add_argument("--eval-only", action="store_true",
 parser.add_argument(
     "--eos-fix",
     action="store_true",
-    help="use EOS-preserving training/generation and isolated llamaeosfix paths",
+    help="use EOS-preserving training/generation and the canonical Llama adapter path",
 )
 args = parser.parse_args()
 sample_type = args.sample_type
@@ -54,9 +55,11 @@ batch_size = int(args.batch_size)
 experiment_dir = {"abstracts_only": "experiment1", "abstracts_and_titles": "experiment2",
                   "questions": "experiment3"}[sample_type]
 if args.eos_fix:
-    experiment_dir += "-llamaeosfix"
+    experiment_dir = f"llama/{experiment_dir}"
+else:
+    experiment_dir = f"_legacy/llama_pre_eosfix/{experiment_dir}"
 
-config = load_path_file(["lora_adapters", sample_type], "train_config.json")
+config = load_path_file(["lora_adapters", "configs"], f"{sample_type}.json")
 config["batch_size"] = batch_size
 if args.eos_fix:
     config.update(preserve_eos=True, record_trainable_parameters=True)
@@ -67,9 +70,8 @@ else:
 if n_samples == -1:
     n_samples = 63800
 
-adapter_save_path = ["lora_adapters"]
-if args.eos_fix:
-    adapter_save_path.append("llamaeosfix")
+adapter_save_path = (["lora_adapters", "llama"] if args.eos_fix
+                     else ["lora_adapters", "_legacy", "llama"])
 adapter_save_path.extend([sample_type, str(n_samples), str(batch_size)])
 
 model_name = config["train_model"]
@@ -134,7 +136,7 @@ if not args.eval_only:
 
 
 generation_config = load_path_file(["data"], "generation_config.json")
-train_config = load_path_file(["lora_adapters", sample_type], "train_config.json")
+train_config = load_path_file(["lora_adapters", "configs"], f"{sample_type}.json")
 watermark_config = load_path_file(["data", "t_ws"], "config_llama.json")
 config = generation_config | train_config | watermark_config
 if args.eos_fix:

@@ -33,12 +33,12 @@ SUPPORTED_KAPPAS = tuple(
 )
 N_SAMPLES = 100
 GENERATION_SEED = 20260920
-OUTPUT_ROOT = Path("results/ablations/qwen_kappa_source")
-TEMPERATURE_OUTPUT_ROOT = Path("results/ablations/qwen_temperature_source")
-TOP_P_OUTPUT_ROOT = Path("results/ablations/qwen_top_p_source")
-SAMPLING_OUTPUT_ROOT = Path("results/ablations/qwen_sampling_source")
+OUTPUT_ROOT = Path("results/_ablations/watermark/qwen_kappa_source")
+TEMPERATURE_OUTPUT_ROOT = Path("results/_ablations/watermark/qwen_temperature_source")
+TOP_P_OUTPUT_ROOT = Path("results/_ablations/watermark/qwen_top_p_source")
+SAMPLING_OUTPUT_ROOT = Path("results/_ablations/watermark/qwen_sampling_source")
 SAMPLING_LENGTHFIX_OUTPUT_ROOT = Path(
-    "results/ablations/qwen_sampling_source_lengthfix"
+    "results/_ablations/watermark/qwen_sampling_source_lengthfix"
 )
 MAX_NEW_TOKENS_RATIO = 1.5
 SAMPLING_STRENGTH_SUMMARY = (

@@ -41,7 +41,7 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(eos.experiment_dir("abstracts_and_titles"),
                          "llama/experiment2")
         self.assertEqual(eos.adapter_root("abstracts_only"),
-                         ["lora_adapters", "llama", "abstracts_only"])
+                         ["lora_adapters", "llama-on-llama", "abstracts_only"])
         self.assertEqual(eos.corpus_dir, "data/t_ws/llama")
         with patch("src.util.experiment_profile.version", return_value="0.3.4"):
             eos.check_waterfall()
@@ -97,7 +97,7 @@ class ProfileTests(unittest.TestCase):
                 roots.add(resolved["adapters"])
                 self.assertEqual(
                     resolved["adapters"],
-                    f"lora_adapters/qwen/{sample_type}/{n}/32",
+                    f"lora_adapters/qwen-on-qwen/{sample_type}/{n}/32",
                 )
                 self.assertEqual(
                     resolved["results"],
@@ -292,6 +292,7 @@ class ProfileTests(unittest.TestCase):
             self.assertIn("paper_supplementary", source)
             self.assertIn("semantic_similarity", source)
             self.assertIn("figures/qwen/", source)
+            self.assertIn("training_metadata/qwen-on-qwen/", source)
             self.assertIn('Path("tables")', source)
             for cell in nb["cells"]:
                 if cell["cell_type"] == "code":
@@ -305,7 +306,7 @@ class ProfileTests(unittest.TestCase):
             nb = json.loads(path.read_text())
             source = "".join("".join(c["source"]) for c in nb["cells"])
             self.assertIn(f"qwen_on_llama/experiment{experiment}", source)
-            self.assertIn("lora_adapters/qwen_on_llama/", source)
+            self.assertIn("training_metadata/qwen_on_llama/", source)
             self.assertIn("figures/qwen_on_llama/", source)
             self.assertIn('Path("tables")', source)
             self.assertNotIn(f"qwen/experiment{experiment}\"", source)
@@ -324,7 +325,7 @@ class ProfileTests(unittest.TestCase):
             nb = json.loads(path.read_text())
             source = "".join("".join(c["source"]) for c in nb["cells"])
             self.assertIn(f"llama/experiment{experiment}", source)
-            self.assertIn("lora_adapters/llama/", source)
+            self.assertIn("training_metadata/llama-on-llama/", source)
             self.assertIn("figures/llama/", source)
             self.assertIn('Path("tables")', source)
             self.assertNotIn("63800", source)

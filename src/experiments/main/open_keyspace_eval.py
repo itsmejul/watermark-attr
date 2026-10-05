@@ -163,7 +163,7 @@ def ask_and_verify(prompt_type, sub_experiment_name):
     prompts, add_special = get_prompts_for(prompt_type)
     responses_path = ["results", experiment_dir, prompt_type, str(n_samples), str(batch_size),
                       sub_experiment_name]
-    adapter_namespace = ["llama"] if args.eos_fix else ["_legacy", "llama"]
+    adapter_namespace = ["llama-on-llama"] if args.eos_fix else ["_legacy", "llama"]
     lora_adapter_path = ["lora_adapters", *adapter_namespace, sample_type,
                          str(n_samples), str(batch_size), sub_experiment_name]
 

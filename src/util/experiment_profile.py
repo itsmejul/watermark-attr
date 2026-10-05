@@ -93,8 +93,8 @@ class ExperimentProfile:
         name = sample_type + ("_unwatermarked" if unwatermarked else "")
         namespace = {
             "llama": ["_legacy", "llama"],
-            "llama_eosfix": ["llama"],
-            "qwen": ["qwen"],
+            "llama_eosfix": ["llama-on-llama"],
+            "qwen": ["qwen-on-qwen"],
             "qwen_on_llama": ["qwen_on_llama"],
         }[self.name]
         return ["lora_adapters", *namespace, name]

@@ -36,7 +36,7 @@ eval_job=""
 if [[ ! -f results/llama/experiment2/titles/100/32/100/verification_closed.json ]]; then
     pipeline_args=()
     action="training and evaluation"
-    if [[ -f lora_adapters/llama/abstracts_and_titles/100/32/100/lora_adapter/adapter_config.json ]]; then
+    if [[ -f lora_adapters/llama-on-llama/abstracts_and_titles/100/32/100/lora_adapter/adapter_config.json ]]; then
         pipeline_args=("--eval-only")
         action="evaluation"
     fi

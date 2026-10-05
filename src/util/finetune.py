@@ -12,26 +12,29 @@ from src.util.checkpoints import latest_complete_checkpoint
 from src.util.causal_lm_data import PreserveEosDataCollator, tokenize_with_terminal_eos
 from src.util.qwen_compat import restore_qwen_text_architecture
 from src.util.filereader import write_path_file, load_or_create_path_file, get_lora_adapter_path
+from src.util.training_metadata import training_metadata_path, write_training_history
 
 UNSLOTH_MAX_SEQ_LENGTH = 512
 
 
+def save_adapter_only(model, save_path):
+    """Save the PEFT adapter without duplicated model cards or tokenizers."""
+    model.save_pretrained(save_path)
+    Path(save_path, "README.md").unlink(missing_ok=True)
+
+
 class SaveAdapterAtEpochCallback(TrainerCallback):
-    def __init__(self, save_epochs, experiment_path, tokenizer=None):
+    def __init__(self, save_epochs, experiment_path):
         self.save_epochs = save_epochs
         self.experiment_path = experiment_path
-        self.tokenizer = tokenizer
 
     def on_epoch_end(self, args, state, control, model=None, **kwargs):
         epoch = round(state.epoch)
         if epoch in self.save_epochs:
             save_path = get_lora_adapter_path(self.experiment_path + [str(epoch)])
             os.makedirs(save_path, exist_ok=True)
-            model.save_pretrained(save_path)
-            if self.tokenizer is not None:
-                self.tokenizer.save_pretrained(save_path)
-            state.save_to_json(os.path.join(save_path, "trainer_state.json"))
-            print(f"Saved LoRA adapter and trainer state at epoch {epoch} to {save_path}")
+            save_adapter_only(model, save_path)
+            print(f"Saved LoRA adapter at epoch {epoch} to {save_path}")
 
 
 def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=False, max_length=300, resume=False):
@@ -75,7 +78,6 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
     tokenizer.pad_token = tokenizer.eos_token
     if config.get("profile") == "qwen":
         restore_qwen_text_architecture(model)
-        callback.tokenizer = tokenizer
         if any("visual" in name or "vision_tower" in name for name, _ in model.named_parameters()):
             raise RuntimeError("Qwen text-only loading unexpectedly retained a vision tower; refusing ambiguous LoRA targets")
 
@@ -124,7 +126,7 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
     )
     model.print_trainable_parameters()
     if config.get("profile") == "qwen" or config.get("record_trainable_parameters"):
-        write_path_file(experiment_path, "trainable_parameters.json", {
+        write_path_file(training_metadata_path(experiment_path), "trainable_parameters.json", {
             "model_class": type(model).__name__,
             "model_commit": getattr(model.config, "_commit_hash", None),
             "target_modules": target_modules,
@@ -191,19 +193,16 @@ def finetune(texts, eval_texts, config, experiment_path, add_special_tokens=Fals
         print(f"Resume checkpoint: {last_checkpoint or 'none complete; restarting training from the beginning'}")
     trainer.train(resume_from_checkpoint=last_checkpoint if resume else None)
 
-    trainer.model.save_pretrained(adapter_save_dir)
-    if config.get("profile") == "qwen":
-        tokenizer.save_pretrained(adapter_save_dir)
-    # Persist the full log_history (per-step train loss, per-epoch eval loss,
-    # grad_norm, lr) 
-    trainer.state.save_to_json(os.path.join(adapter_save_dir, "trainer_state.json"))
-    print("Saved lora adapter and trainer state")
+    save_adapter_only(trainer.model, adapter_save_dir)
+    write_training_history(experiment_path, trainer.state)
+    print("Saved final LoRA adapter and compact training history")
 
     end_time = time.time()
     latency = end_time - start_time
-    latency_dict = load_or_create_path_file(experiment_path, "latency.json")
+    metadata_path = training_metadata_path(experiment_path)
+    latency_dict = load_or_create_path_file(metadata_path, "latency.json")
     latency_dict["train"] = end_time - start_time
-    write_path_file(experiment_path, "latency.json", latency_dict)
+    write_path_file(metadata_path, "latency.json", latency_dict)
 
     del model, tokenizer, trainer
     torch.cuda.empty_cache()

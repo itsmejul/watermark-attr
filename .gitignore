@@ -1,13 +1,28 @@
+# Repository-local assistant state and superseded documentation
+/.agents/
+/.claude/
+/.codex/
+/OLD_README.md
+/README2.md
+/QWEN_EXPERIMENTS.md
+/job_outputs/
+
 # ignore thesis dir
 thesis/
 # ignore venv 
 unsloth_compiled_cache/
 cllm-waterfall-env/
-.claude/
 
 **/adapter_config.json
 
 *.safetensors
+
+# LoRA checkpoints are runtime artifacts kept on HPC/external storage. Only
+# the canonical training configs remain versioned; compact provenance and loss
+# histories live in training_metadata/.
+lora_adapters/**
+!lora_adapters/configs/
+!lora_adapters/configs/*.json
 
 batch_outputs/
 data/raw_unarxive_files/
@@ -23,8 +38,6 @@ misc_stuff/
 *.aux
 *.log
 *.out
-/job_outputs/*
-!/job_outputs/.gitkeep
 *.fls
 *.fdb_latexmk
 *.synctex.gz

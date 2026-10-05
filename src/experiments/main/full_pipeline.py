@@ -70,7 +70,7 @@ else:
 if n_samples == -1:
     n_samples = 63800
 
-adapter_save_path = (["lora_adapters", "llama"] if args.eos_fix
+adapter_save_path = (["lora_adapters", "llama-on-llama"] if args.eos_fix
                      else ["lora_adapters", "_legacy", "llama"])
 adapter_save_path.extend([sample_type, str(n_samples), str(batch_size)])
 

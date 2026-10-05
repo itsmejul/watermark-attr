@@ -67,7 +67,8 @@ also creates it. Existing jobs/logs are not moved; GPU utilization logs stay in 
 
 - Qwen watermarked targets: `data/t_ws/qwen/combined_t_ws.json`.
 - Qwen prefixes/control prefixes/open prefixes: `data/prompts/qwen/`.
-- Results: `results/qwen/experiment{1,2,3}/`; adapter root: `lora_adapters/qwen/`.
+- Results: `results/qwen/experiment{1,2,3}/`; adapter root: `lora_adapters/qwen-on-qwen/`.
+- Compact run provenance and loss histories: `training_metadata/qwen-on-qwen/`.
   Controls retain the `_unwatermarked` variant suffix inside those roots.
 - Qwen chat templates always receive `enable_thinking=False`. Experiment 1
   remains raw-text completion, not a new chat/reasoning task.
@@ -85,7 +86,7 @@ also creates it. Existing jobs/logs are not moved; GPU utilization logs stay in 
 - Qwen LoRA covers both full-attention projections (`q_proj`, `k_proj`, `v_proj`,
   `o_proj`) and Gated DeltaNet projections (`in_proj_qkv`, `in_proj_z`,
   `in_proj_a`, `in_proj_b`, `out_proj`). The run records exact trainable names
-  and counts in `trainable_parameters.json`.
+  and counts in the corresponding `training_metadata/.../trainable_parameters.json`.
 - Qwen training examples receive an explicit terminal EOS. The data collator
   masks positions using the attention mask, so genuine EOS labels remain
   supervised even though Qwen uses its EOS token as padding. This, together
@@ -174,10 +175,12 @@ On HoreKa substitute `scripts/launch_horeka.sh`. The production partition
 is `accelerated`; for a short development test use
 `--partition=dev_accelerated --time=01:00:00` instead. Compilation may make the
 first training run slow. Smoke data goes to `results/qwen/experimentN-smoke/`
-and `lora_adapters/qwen/smoke/`, never the production directories.
+and `lora_adapters/qwen-on-qwen/smoke/`, never the production directories.
 
 Check Slurm `COMPLETED`/exit `0:0`, finite training/eval losses, nonempty answers,
-`verification_closed.json`, and saved tokenizer/adapter files for all three jobs.
+`verification_closed.json`, and saved adapter config/weights for all three jobs.
+Tokenizer files are loaded from the base model and are not duplicated into every
+epoch adapter.
 Local checks do not substitute for these GPU tests.
 
 ## 4. Submit all main experiments (18 independent jobs)
@@ -236,9 +239,9 @@ After pulling this branch, run this block from the repository root on Capella:
   test -f data/experiment_config_qwen.json
   restart_archive=$(mktemp -d "$PWD/qwen-restart-backup-XXXXXXXX")
   for old_path in \
-    lora_adapters/qwen/abstracts_only \
-    lora_adapters/qwen/abstracts_and_titles \
-    lora_adapters/qwen/questions \
+    lora_adapters/qwen-on-qwen/abstracts_only \
+    lora_adapters/qwen-on-qwen/abstracts_and_titles \
+    lora_adapters/qwen-on-qwen/questions \
     results/qwen/experiment1/prefix_10 \
     results/qwen/experiment2/titles \
     results/qwen/experiment2/titles_1 \
@@ -378,4 +381,5 @@ combinations, mocked train/save/reload/evaluate/resume/control/open orchestratio
 legacy Fourier parity, modern scores against Waterfall 0.3.4, tiny Qwen hybrid
 forward/backward and greedy generation under Transformers 5.5.0, and the
 BERTScore encoder API. **Full 9B Unsloth GPU training is not yet
-validated here.** Preserve the smoke logs and `run_manifest.json` with results.
+validated here.** Preserve the smoke logs and the corresponding
+`training_metadata/.../run_manifest.json`.

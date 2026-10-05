@@ -1,190 +1,77 @@
-### Waterfall-based LLM Source Attribution
-This repository contains the code needed to reproduce the results of the thesis "From Memorization to Generalization: On the Limits of Text Watermarks for Source Attribution in Large Language Models" authored by Julian Mosig von Aehrenfeld.
-Evaluation results and dataset are included in `/results` and `/data`, while the actual trained LoRA adapters are not saved due to their size.
+# Repository Structure
+`data` contains the seeded, unwatermarked texts, as well as the llama-watermarked and qwen-watermarked texts alongside their prompts.
+Generation parameters are in `data/t_ws/config_*.json`. The Llama parameters are defaults from the Waterfall paper, the Qwen parameters come from the ablations.
 
-## Setup
-All experiments were conducted using Python 3.12.3 on a single Nvidia H100 GPU. The seeded dataset is saved using Git LFS:
-```
-git lfs install
-git lfs pull
-```
+`lora_adapters/` contains runtime LoRA artifacts on HPC. Each saved epoch only needs its `adapter_config.json` and learned `adapter_model.safetensors`; it is gitignored except for `lora_adapters/configs/*.json`. Qwen may also keep up to two temporary `checkpoint-*` directories for interrupted-job recovery. 
 
-Current workflows use two isolated Python environments: `.venv-watermark` for
-corpus/prompt creation and watermark ablations, and `.venv-experiment` for all
-training and evaluation. See `README2.md` for the exact reproducible setup and
-the command-to-environment mapping.
+`training_metadata/{trainmodel-on-watermarkmodel}/{task}/{corpus_size}/{batch_size}/` contains the loss trajectories for each run. 
 
-In order to use the huggingface models that were used for the experiments, you need to request access to them on Huggingface and create an access token on your huggingface account, then run
-`$ huggingface-cli login`
-to login and paste your token there. 
-Now, you will have access to all the models that your account has access to.
+`results/` has the structure: `results/{trainmodel-on-watermarkmodel}/{experiment}/{prompt_type}/{corpus_size}/{batch_size}/{epoch}/verification_closed.json`. Main results are in `verification_closed.json`, saved every five epochs. It mainly stores the correct keys for each prompt, the top predicted keys, and the q-score it gave for each of them. Based on these files we can compute accuracy and so on.
 
-Also, an OpenAI API is needed in `.env`, see `.env.example` to produce the prompts for further experiments (current the prompts are present in `/data`).
+`scripts/` just the HPC runner scripts.
 
-## Data preparation
-The generated data uses one canonical layout:
+`src/eval/` the main eval notebooks, these contain our results in visual and table form.
 
-```text
-data/prompts/{llama,qwen}/   model-tokenized prefix prompts
-data/prompts/shared/         model-independent title/question prompts
-data/prompts/config_*.json   prompt-generation profiles
-data/t_ws/{llama,qwen}/      the two watermarked corpora
-data/t_ws/config_*.json      watermark-generation configs
-```
 
-LoRA adapters use the corresponding canonical layout:
+# Evaluation notebooks
+Should be run in their directory.
 
-```text
-lora_adapters/llama/          corrected Llama-on-Llama grid
-lora_adapters/qwen/           corrected Qwen-on-Qwen grid
-lora_adapters/qwen_on_llama/  corrected cross-model grid
-lora_adapters/configs/        shared task training configs
-lora_adapters/_ablations/     controls and optimization ablations
-```
+## Main experiment notebooks
+We evaluate three tasks (experiment 1-3) and three model combinations:
+- `experiment{1,2,3}_eval_llama.ipynb`: Llama trained on the Llama-watermarked corpus.
+- `experiment{1,2,3}_eval_qwen.ipynb`: Qwen trained on the Qwen-watermarked corpus.
+- `experiment{1,2,3}_eval_qwen_on_llama.ipynb`: Qwen trained on the Llama-watermarked corpus.
 
-The historical pre-EOS-fix Llama pipeline writes below
-`lora_adapters/_legacy/llama/` if it is deliberately rerun.
+Each notebook creates plots and saves them to `src/eval/figures`. They also create tables and save them to `src/eval/tables`.
+They report primary metrics (closed-keyspace attribution accuracy), and supplementary metrics (BM25, correctQ, Margin, SemSim, BERTScore, Rouge-2, NormLCS) and potentially also additional control experiments like open-keyspace evaluation.
 
-Download the unarXive open subset from https://zenodo.org/records/7752754 and
-extract it to `data/unarxive_open/`.  
+## Supporting notebooks
+- `experiment1_model_comparison.ipynb`: epoch-100 top-1 comparison across all three
+  model/data combinations and corpus sizes.
+- `llama_unwatermarked_control_eval.ipynb`: Llama unwatermarked control trajectory.
+- `watermark_ablations_eval.ipynb`: direct watermark-generation ablations, used for motivating hyperparameter choices..
 
-Then run the scripts in `src/data_creation/` in the following order (each
-expects the repo root on PYTHONPATH, e.g.
-`PYTHONPATH=. python src/data_creation/sample_dataset.py`):
-
-`sample_dataset.py`: samples a seeded subset of the dataset and saves it to
-`data/seeded_dataset.jsonl`.
-
-`create_keys.py`: creates `data/keys.json` with the watermark key values
-according to `data/t_ws/config_llama.json`.
-
-`create_t_ws.py`: runs the watermarking.
-Due to high computation costs, optionally pass a batch number to only watermark one block of `batch_size` samples per process (multiple runs are needed then).  
-Pass nothing to watermark all samples at once. 
-Each block is written to `data/t_ws/llama/t_ws_batch_samples_<start>_to_<end>/`. 
-Once all blocks are done, run it again with `--combine` to merge them into `data/t_ws/llama/combined_t_ws.json`.
-
-### Qwen 3.5 watermarking on HoreKa Green
-
-The Qwen corpus is a separate experimental arm. It uses the unchanged
-`data/keys.json` keys and watermark parameters, disables Qwen reasoning, and
-writes only below `data/t_ws/qwen/`; the Llama corpus stays in
-`data/t_ws/llama/`. The maintained Qwen corpus uses the selected fixed setup:
-kappa 4, temperature 1.0, no top-k/top-p filtering, and a source-token-based
-generation-length limit of 1.5x.
-
-Create its separate environment from the repository root (the system Python
-on Green is too old for current Waterfall):
+# Create environments
+Use Python 3.12 and create both environments from the repository root.
+On HPC clusters, load the modules first, for example like so:
 
 ```bash
-uv python install 3.12
-uv venv --python 3.12 .venv-watermark
-uv pip install --python .venv-watermark/bin/python -r req-watermark.txt
-source .venv-watermark/bin/activate
-export HF_HOME=/hkfs/work/workspace/scratch/id_qry6439-watermark_paper/.cache/huggingface
-mkdir -p "$HF_HOME"
-hf download Qwen/Qwen3.5-9B
+module purge
+module load release/24.04 GCCcore/13.3.0 Python/3.12.3
 ```
-
-Qwen3.5-9B is public; the explicit download populates the same workspace cache
-used by the launcher and avoids 13 jobs trying to download the model together.
-
-Run a 50-text timing test in batch 1. Its output is a valid partial checkpoint,
-so the later full batch-1 job resumes at text 51:
+Due to incompatible transformer version requirements between Unsloth and Waterfall,
+two separate environments are need.
+Create the watermarking environment:
 
 ```bash
-sbatch --partition=dev_accelerated --time=01:00:00 \
-  scripts/launch_horeka.sh src.data_creation.create_t_ws 1 \
-  --config data/t_ws/config_qwen.json --limit 50
+python -m venv .venv-watermark
+.venv-watermark/bin/python -m pip install --upgrade pip
+.venv-watermark/bin/python -m pip install -r req-watermark.txt
+.venv-watermark/bin/python -m pip check
 ```
 
-After checking the timing, submit the 13 corpus batches:
+Create the training/evaluation environment:
 
 ```bash
-for batch in $(seq 1 13); do
-  sbatch scripts/launch_horeka.sh src.data_creation.create_t_ws "$batch" \
-    --config data/t_ws/config_qwen.json
-done
+python -m venv .venv-experiment
+.venv-experiment/bin/python -m pip install --upgrade pip
+.venv-experiment/bin/python -m pip install -r req-experiment.lock.txt
+.venv-experiment/bin/python -m pip check
+.venv-experiment/bin/python -m ipykernel install --user \
+  --name watermark-experiment --display-name ".venv-experiment"
 ```
 
-Jobs atomically checkpoint every 100 texts. Re-running the same command safely
-resumes a partial batch. After every batch is complete, validate hashes,
-ranges, and item counts and create the combined corpus:
+## Which environment to use
+Use `.venv-watermark` for:
 
-```bash
-.venv-watermark/bin/python -m src.data_creation.create_t_ws --combine \
-  --config data/t_ws/config_qwen.json
-```
+- `src.data_creation.create_t_ws` and all watermark-corpus batches/combines
+- `src.data_creation.create_prompt_dataset`
+- `src.experiments.ablations.qwen_kappa_ablation`
+- all `submit_qwen_*ablation.sh` and `submit_qwen_*corpus.sh` helpers
 
-Then generate only the prompt files that actually depend on the watermark
-model/corpus:
+Use `.venv-experiment` for:
 
-```bash
-.venv-watermark/bin/python -m src.data_creation.create_prompt_dataset \
-  --profile data/prompts/config_qwen.json \
-  --set both \
-  --tasks prefix
-```
-
-This writes `prefix_10.json` and `prefix_10_open.json` below
-`data/prompts/qwen/`. The title variants are based only on the unchanged
-original titles, and the questions are based only on the unchanged original
-unwatermarked abstracts, so the Qwen experiment reuses those files from
-`data/prompts/shared/`. No OpenAI request or API key is needed for this prefix-only
-step.
-
-`create_prompt_dataset.py`: creates all prompt files in
-`data/prompts/llama` (Llama prefixes) and `data/prompts/shared` (perturbed titles
-and questions) for both the closed and open-keyspace sets. Needs
-`OPENAI_API_KEY` only for titles/questions. Run with `--set closed`,
-`--set open`, or no parameter for both.
-
-## Ablations
-Requires a GPU. 
-Run with `-m`, e.g.
-`PYTHONPATH=. python -m src.experiments.ablations.1_id_kp_ablation`.
-Each script takes one optional `sub_experiment_name` argument; with no argument it runs
-all of its default sub-experiments in sequence.
-
-`1_id_kp_ablation.py [sub_experiment_name]` (`unique_ids`, `unique_kps`, default: both).
-
-`2_watermarkfn_ablation.py [sub_experiment_name]` (`fourier`, `square`, default: both).
-
-`3_ngram_ablation.py [sub_experiment_name]` (`one` .. `five` by default).
-
-`4_kappa_ablation.py [sub_experiment_name]` (`two`, `four`, `six`, `eight`,
-default: all).
-
-## Main experiments
-Require a GPU. Run with `-m`, e.g.
-`PYTHONPATH=. python -m src.experiments.main.full_pipeline`.
-
-`full_pipeline.py [n_samples] [sample_type] [batch_size] [n_eval_samples] [--eval-only]`:
-trains a LoRA adapter and evaluates it at every saved epoch. `sample_type` is
-one of `abstracts_only` (Experiment 1), `abstracts_and_titles` (Experiment 2), `questions` (Experiment 3). `--eval-only`
-skips training and only runs generation + verification on an adapter already
-saved under `lora_adapters/`.
-
-For example, to reproduce a run of the thesis' first experiment at the largest sample size, run 
-`python -m src.experiments.main.full_pipeline 63800 abstracts_only 32 1000`.
-And for experiment 2 on the smallest sample size, run:
-`python -m src.experiments.main.full_pipeline 100 abstracts_and_titles 32 1000`.
-
-`full_pipeline_unwatermarked.py [n_samples] [sample_type] [batch_size] [n_eval_samples]`:
-Same as above, trained on the original unwatermarked abstracts.
-
-`open_keyspace_eval.py [n_samples] [sample_type] [batch_size] [n_open_samples]`:
-evaluates a trained adapter against held-out negative samples for the open keyspace evaluation.
-
-`similarity_eval.py --metrics METRIC [METRIC ...] [--n_samples N] [--sample_type TYPE] [--batch_size BS] [--sweep] [--all-epochs] [--unwatermarked]`:
-Similarity/retrieval metrics on generated answers; `--metrics` takes one or
-more of `bm25`, `cosine`, `bertscore`, `bigram`, `lcs`. `--sweep` runs
-every `(sample_type, n_samples, batch_size)` combination in
-`results/`; `--unwatermarked` runs only the bm25 control instead.
-
-`baseline_t_w_verification.py [n_samples] [top_k] [t_ws_dir] [keys_file_name]`:
-watermark detection on the watermarked texts themselves.
-
-`compute_t_w_bigrams.py`, `count_t_w_lengths.py`, `perturbed_titles_similarity.py`:
-Compute data used by `similarity_eval.py`'s bigram
-metric, token-length statistics, and the perturbed-title similarity check.
+- all main LoRA experiments with fine-tuning and evaluation
+- full-parameter/continued-pretraining runs
+- closed/open-keyspace evaluation and additional similarity metrics
+- the evaluation notebooks

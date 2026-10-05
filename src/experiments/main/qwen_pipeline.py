@@ -17,6 +17,7 @@ from src.util.filereader import (
     REPO_ROOT, HELDOUT_START, HELDOUT_END, load_subset, load_held_out_set,
     load_abstracts, load_open_keyspace_set, load_path_file, write_path_file_atomic,
 )
+from src.util.training_metadata import training_metadata_path
 
 
 def subset_indices(n):
@@ -166,6 +167,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     if args.smoke:
         adapter.insert(len(adapter) - 3, "smoke")
         result_dir += "-smoke"
+    metadata = training_metadata_path(adapter)
     # Watermark sampling fields have a _watermark suffix. Evaluation retains
     # generation_config's greedy decoding; the two settings must stay separate.
     generation = load_path_file(["data"], "generation_config.json") | config | source_profile.watermark_config
@@ -173,7 +175,8 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     subset_kwargs = source_profile.subset_kwargs(unwm)
     resolved_mode = (f"{cross_model_name}_{mode}" if cross_model else
                      mode if watermark_source == "qwen" else f"{watermark_source}_{mode}")
-    print(json.dumps(dict(mode=resolved_mode, adapters="/".join(adapter), results=f"results/{result_dir}",
+    print(json.dumps(dict(mode=resolved_mode, adapters="/".join(adapter),
+                          training_metadata="/".join(metadata), results=f"results/{result_dir}",
                           subset=subset_kwargs, detector_model=source_profile.model, train=config,
                           generation={k: generation[k] for k in ("do_sample", "temperature", "top_p", "max_response_tokens")}), indent=2))
     if args.dry_run:
@@ -234,11 +237,11 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
                     legacy_fourier=cross_model, config=config, n_samples=args.n_samples, unwatermarked=unwm,
                     inputs=training_fingerprints, versions=versions, subset_seed=48)
     with run_lock(adapter):
-        existing = REPO_ROOT.joinpath(*adapter, "run_manifest.json")
+        existing = REPO_ROOT.joinpath(*metadata, "run_manifest.json")
         if (args.eval_only or mode == "open") and not existing.is_file():
             raise FileNotFoundError(f"Training manifest missing: {existing}")
-        guard_manifest(adapter, "run_manifest.json", manifest)
-        complete = REPO_ROOT.joinpath(*adapter, "training_complete.json")
+        guard_manifest(metadata, "run_manifest.json", manifest)
+        complete = REPO_ROOT.joinpath(*metadata, "training_complete.json")
         if not args.eval_only and mode != "open":
             if complete.exists() and not args.resume:
                 raise FileExistsError("Training already complete. Use --resume or --eval-only.")
@@ -258,7 +261,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
                 finetune(training_texts, heldout_texts, config, adapter,
                          add_special_tokens=raw, max_length=300 if raw else 512,
                          resume=args.resume)
-                write_path_file_atomic(adapter, "training_complete.json", {"epochs": config["epochs"]})
+                write_path_file_atomic(metadata, "training_complete.json", {"epochs": config["epochs"]})
         if args.train_only:
             return
         indices = eval_indices(args.n_samples, args.n_eval_samples)

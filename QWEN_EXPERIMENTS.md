@@ -363,11 +363,10 @@ bash scripts/submit/submit_qwen_on_llama_experiments.sh capella
 
 ## Notebooks and checks
 
-Use `src/eval/experiment{1,2,3}_eval_qwen.ipynb` and
-`src/eval/unwatermarked_control_eval_qwen.ipynb` from `src/eval/`. Original
-notebooks are unchanged. Qwen copies have cleared outputs, Qwen result/adapter
-paths, 50000 as the largest size, and separate `thesis/figures/results/qwen/`
-outputs. Register the separate kernel if using these on the HPC:
+Use `src/eval/experiment{1,2,3}_eval_qwen.ipynb` from `src/eval/`. They use
+the maintained Qwen result/adapter paths, 50000 as the largest size, separate
+`src/eval/figures/qwen/` outputs, and paper-ready primary and
+supplementary tables. Register the separate kernel if using these on the HPC:
 
 ```bash
 python -m ipykernel install --user --name watermark-experiment --display-name '.venv-experiment'

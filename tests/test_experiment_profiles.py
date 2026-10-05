@@ -278,20 +278,23 @@ class ProfileTests(unittest.TestCase):
             [0, 7, 2],
         )
 
-    def test_qwen_notebooks_isolated_and_cleared(self):
+    def test_qwen_notebooks_cover_all_experiments_and_are_isolated(self):
         root = Path(__file__).resolve().parents[1]
-        notebooks = list((root / "src/eval").glob("*_qwen.ipynb"))
-        self.assertEqual(len(notebooks), 4)
+        notebooks = sorted((root / "src/eval").glob("experiment*_eval_qwen.ipynb"))
+        self.assertEqual(len(notebooks), 3)
         for path in notebooks:
             nb = json.loads(path.read_text())
             source = "".join("".join(c["source"]) for c in nb["cells"])
             self.assertNotIn("63800", source)
             self.assertNotIn('Path("../../results/experiment1")', source)
             self.assertIn("/qwen/", source)
+            self.assertIn("paper_primary", source)
+            self.assertIn("paper_supplementary", source)
+            self.assertIn("semantic_similarity", source)
+            self.assertIn("figures/qwen/", source)
+            self.assertIn('Path("tables")', source)
             for cell in nb["cells"]:
                 if cell["cell_type"] == "code":
-                    self.assertEqual(cell["outputs"], [])
-                    self.assertIsNone(cell["execution_count"])
                     compile("".join(cell["source"]), str(path), "exec")
 
     def test_qwen_on_llama_notebooks_cover_all_experiments_and_are_isolated(self):
@@ -303,7 +306,8 @@ class ProfileTests(unittest.TestCase):
             source = "".join("".join(c["source"]) for c in nb["cells"])
             self.assertIn(f"qwen_on_llama/experiment{experiment}", source)
             self.assertIn("lora_adapters/qwen_on_llama/", source)
-            self.assertIn("figures/results/qwen_on_llama/", source)
+            self.assertIn("figures/qwen_on_llama/", source)
+            self.assertIn('Path("tables")', source)
             self.assertNotIn(f"qwen/experiment{experiment}\"", source)
             if experiment == 1:
                 self.assertIn("OPEN_SAMPLE_SIZE = 1000", source)
@@ -312,20 +316,32 @@ class ProfileTests(unittest.TestCase):
                 if cell["cell_type"] == "code":
                     compile("".join(cell["source"]), str(path), "exec")
 
-    def test_llama_eosfix_notebooks_cover_all_experiments_and_are_isolated(self):
+    def test_llama_notebooks_cover_all_experiments_and_are_isolated(self):
         root = Path(__file__).resolve().parents[1]
-        notebooks = sorted((root / "src/eval").glob("experiment*_eval_llama_eosfix.ipynb"))
+        notebooks = sorted((root / "src/eval").glob("experiment*_eval_llama.ipynb"))
         self.assertEqual(len(notebooks), 3)
         for experiment, path in enumerate(notebooks, 1):
             nb = json.loads(path.read_text())
             source = "".join("".join(c["source"]) for c in nb["cells"])
             self.assertIn(f"llama/experiment{experiment}", source)
             self.assertIn("lora_adapters/llama/", source)
-            self.assertIn("figures/results/llamaeosfix/", source)
+            self.assertIn("figures/llama/", source)
+            self.assertIn('Path("tables")', source)
             self.assertNotIn("63800", source)
             for cell in nb["cells"]:
                 if cell["cell_type"] == "code":
                     compile("".join(cell["source"]), str(path), "exec")
+
+    def test_eval_notebook_cleanup_has_no_legacy_or_missing_control_notebooks(self):
+        root = Path(__file__).resolve().parents[1] / "src/eval"
+        obsolete = (
+            "experiment1_eval.ipynb", "experiment2_eval.ipynb",
+            "experiment3_eval.ipynb", "unwatermarked_control_eval_qwen.ipynb",
+        )
+        self.assertFalse(any((root / name).exists() for name in obsolete))
+        self.assertTrue((root / "experiment1_model_comparison.ipynb").is_file())
+        self.assertTrue((root / "watermark_ablations_eval.ipynb").is_file())
+        self.assertTrue((root / "llama_unwatermarked_control_eval.ipynb").is_file())
 
 
 class FourierTests(unittest.TestCase):

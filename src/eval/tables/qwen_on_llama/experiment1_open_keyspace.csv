@@ -1,0 +1,5 @@
+model,corpus_size,epoch,score_type,n_positive,n_negative,auroc,closed_top1_accuracy,target_fpr,achieved_fpr,threshold,threshold_rule,tpr,open_acc,n_detected,n_correct_attributed
+qwen_on_llama,1000,100,raw_maxq,1000,1000,0.828943,0.77,0.01,0.01,0.6519055366516113,score > threshold,0.003,0.003,3,3
+qwen_on_llama,1000,100,raw_maxq,1000,1000,0.828943,0.77,0.05,0.05,0.3133303225040436,score > threshold,0.607,0.569,607,569
+qwen_on_llama,1000,100,standardized_maxq,1000,1000,0.874889,0.77,0.01,0.01,4.052833652525553,score > threshold,0.664,0.658,664,658
+qwen_on_llama,1000,100,standardized_maxq,1000,1000,0.874889,0.77,0.05,0.05,3.737963394688356,score > threshold,0.717,0.697,717,697

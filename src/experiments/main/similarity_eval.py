@@ -5,6 +5,7 @@ Metrics (select with --metrics):
   cosine    sentence embedding cosine similarity (all-mpnet-base-v2)
   bertscore BERTScore precision/recall/F1 (roberta-large)
   bigram    token bigram overlap with the watermarked target (Rouge2)
+            and WBR: recall of unique watermarked-minus-original token bigrams
             (requires data/t_ws/llama/bigrams.npz, see compute_t_w_bigrams.py)
   lcs       longest common substring, normalized by target length
 
@@ -23,7 +24,7 @@ By default only the last and the best-watermark epoch are evaluated unless
 Results are saved in
 results/{experiment_dir}/{sub_experiment}/{n_samples}/{batch_size}/{epoch}/
  as bm25_answer_{corpus}.json, bm25_prompt_{corpus}.json,
-cosine_{target}.json, bertscore_{target}.json, bigrams.json and
+cosine_{target}.json, bertscore_{target}.json, bigrams.json, wbr.json and
 lcs_{target}.json.
 """
 
@@ -45,6 +46,7 @@ from src.util.filereader import (
     write_path_file,
 )
 from src.util.experiment_profile import ExperimentProfile, add_profile_argument, QWEN_SIZES
+from src.util.wbr import bigram_set, wbr_result
 
 ACTIVE_PROFILE = ExperimentProfile()
 
@@ -601,9 +603,9 @@ def _run_pairwise(metric, res, ep_path, ep_dir, answers, targets, correct_k_ps,
 
 
 def _run_bigram(res, ep_path, ep_dir, answers, eval_indices, correct_k_ps,
-                subset_indices, skip_existing):
-    if skip_existing and (ep_dir / "bigrams.json").exists():
-        print("    [skip] bigram: bigrams.json already present")
+                subset_indices, skip_existing, watermarked_targets, original_targets):
+    if skip_existing and (ep_dir / "bigrams.json").exists() and (ep_dir / "wbr.json").exists():
+        print("    [skip] bigram and WBR already present")
         return
     tokenizer = res.tokenizer()
     target_bigrams = res.target_bigrams()
@@ -614,6 +616,15 @@ def _run_bigram(res, ep_path, ep_dir, answers, eval_indices, correct_k_ps,
         chunk = answers[s:s + TOKENIZE_BATCH]
         enc = tokenizer(chunk, add_special_tokens=False)
         answer_token_ids.extend(enc["input_ids"])
+
+    if not skip_existing or not (ep_dir / "wbr.json").exists():
+        wm_ids = _tokenize(tokenizer, [watermarked_targets[i] for i in eval_indices])
+        original_ids = _tokenize(tokenizer, [original_targets[i] for i in eval_indices])
+        eligible = [bigram_set(w) - bigram_set(o) for w, o in zip(wm_ids, original_ids)]
+        write_path_file(ep_path, "wbr.json", wbr_result(
+            eligible, answer_token_ids, correct_k_ps, TOKENIZER_NAME))
+    if skip_existing and (ep_dir / "bigrams.json").exists():
+        return
 
     n = len(answers)
     n_bg_tgt = np.zeros(n, dtype=np.int64)
@@ -694,7 +705,7 @@ def run_config(n_samples, sample_type, batch_size, metrics, res,
     )
 
     pairwise = [m for m in metrics if m in PAIRWISE_METRICS]
-    need_original = ("bm25" in metrics and bm25_corpus == "original") or \
+    need_original = "bigram" in metrics or ("bm25" in metrics and bm25_corpus == "original") or \
         (pairwise and target_type == "original")
     original_full = None
     if need_original:
@@ -760,7 +771,7 @@ def run_config(n_samples, sample_type, batch_size, metrics, res,
                               prompt_cache, skip_existing)
                 elif metric == "bigram":
                     _run_bigram(res, ep_path, ep_dir, answers, eval_indices,
-                                correct_k_ps, subset_indices, skip_existing)
+                                correct_k_ps, subset_indices, skip_existing, T_ws, original_full)
                 else:
                     targets = [pair_targets[i] for i in eval_indices]
                     _run_pairwise(metric, res, ep_path, ep_dir, answers, targets,

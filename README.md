@@ -13,6 +13,48 @@ Generation parameters are in `data/t_ws/config_*.json`. The Llama parameters are
 `src/eval/` the main eval notebooks, these contain our results in visual and table form.
 
 
+# Direct-watermark oracle baseline
+
+From the repository root on Capella, submit the twelve independent baseline jobs:
+
+```bash
+bash scripts/submit/submit_oracle_watermark_evals.sh capella
+```
+
+This uses `.venv-experiment` (override with `RUN_VENV_DIR`) and requires access
+to the Llama tokenizer through the existing Hugging Face cache or authentication.
+It loads no model weights, performs no training or generation, and uses the
+same Waterfall verification as the main grids. There is one job per watermark
+source (`llama`, `qwen`) and corpus size (100, 500, 1000, 5000, 10000, 50000).
+Each evaluates the same min(N, 1000) documents as the grid against all N
+training keys. Llama uses legacy Fourier scoring; Qwen uses current scoring.
+The Llama baseline also applies to Qwen-on-Llama.
+
+Before submission, all sample selections are checked against saved grid
+verifications; the epoch-100 recitation reference must exist for each size.
+Results are isolated under `results/oracle_watermark/<source>/<N>/`:
+`verification_closed.json`, `summary.json` (Acc@1, Acc@5, margin and explicit
+selected-top-1 accuracy), `manifest.json` (document indices, keys and input
+hashes), `alignment.json`, and `latency.json`. Acc@1 follows the main grid's
+rank convention, where tied maxima share rank 1; selected-top-1 accuracy
+also checks the actual returned key. Empty source texts count as failures
+and stay in the denominator; `grid_rank_acc_at_1` additionally reports the
+unadjusted grid convention (which counts all-zero ties as rank 1).
+Reruns reuse completed verification only
+when the manifest matches. No main-grid results are modified.
+
+Single-job example:
+
+```bash
+RUN_VENV_DIR="$PWD/.venv-experiment" sbatch --partition=capella --time=02:00:00 \
+  --job-name=oracle-qwen-1000 scripts/launch_capella.sh \
+  src.experiments.main.oracle_watermark_eval --source qwen --n-samples 1000
+```
+
+This is an oracle-text attribution baseline, not a binary watermark-presence
+test or a guaranteed mathematical upper bound. It evaluates complete stored
+watermarked abstracts without training truncation or prompt removal.
+
 # Evaluation notebooks
 Should be run in their directory.
 

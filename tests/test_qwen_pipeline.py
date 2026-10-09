@@ -186,6 +186,36 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(manifest["config"]["batch_size"], 64)
         self.assertEqual(manifest["config"]["micro_batch_size"], 32)
 
+    def test_augmentation_expands_training_not_candidates_or_prompts(self):
+        for m in (3, 5):
+            texts = [f'variant {i}' for i in range(10 * m)]
+            with patch('src.util.augmentation_data.load_augmentation', return_value=(texts, [])), \
+                 patch('src.util.shared_prefix.prefix_ids'), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                pipeline.main('watermarked', ['10', 'abstracts_only', '32', '5',
+                                              '--augmentation-m', str(m), '--resume'])
+                n_train, n_ask = len(self.calls['train']), len(self.calls['ask'])
+                pipeline.main('watermarked', ['10', 'abstracts_only', '32', '5',
+                                              '--augmentation-m', str(m), '--resume'])
+                self.assertEqual(len(self.calls['train']), n_train)
+                self.assertEqual(len(self.calls['ask']), n_ask)
+            trained, config, kwargs = self.calls['train'][-1]
+            self.assertEqual(trained, texts)
+            self.assertEqual(config['epochs'], 100)
+            self.assertEqual(config['n_samples'], 10)
+            self.assertEqual(config['n_training_texts'], 10 * m)
+            path, adapter, prompts = self.calls['ask'][-1]
+            self.assertEqual(path[1], f'_ablations/qwen_prefix_augmentation/M{m}/experiment1')
+            self.assertEqual(len(prompts), 5)
+            self.assertEqual(prompts, [self.subset(10)['prefix_10'][i] for i in pipeline.eval_indices(10, 5)])
+            self.assertEqual(len(self.calls['verify'][-1][2]['candidate_k_ps']), 10)
+            self.assertEqual(kwargs['max_length'], 300)
+
+    def test_augmentation_rejects_other_tasks_and_controls(self):
+        for mode, task in [('open', 'abstracts_only'), ('watermarked', 'questions')]:
+            with self.assertRaises(ValueError):
+                pipeline.main(mode, ['10', task, '32', '5', '--augmentation-m', '3'])
+
 
 if __name__ == "__main__":
     unittest.main()

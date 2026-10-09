@@ -103,6 +103,8 @@ def parse_args(mode, argv=None):
     parser.add_argument("--smoke", action="store_true", help="1 epoch, <=100 training texts, <=5 eval texts; isolated paths")
     parser.add_argument("--dry-run", action="store_true", help="print resolved settings/paths without loading data or models")
     parser.add_argument("--preflight", action="store_true", help="validate local inputs without loading models")
+    parser.add_argument("--augmentation-m", type=int, choices=(3, 5),
+                        help="shared-prefix Qwen recitation ablation; M=1 reuses the main grid")
     args = parser.parse_args(argv)
     if args.n_samples == -1:
         args.n_samples = 50000
@@ -126,6 +128,11 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     if watermark_source not in ("qwen", "llama"):
         raise ValueError(f"Unknown watermark source: {watermark_source}")
     cross_model = watermark_source == "llama"
+    augmentation = args.augmentation_m
+    if augmentation and (cross_model or mode != 'watermarked' or args.unwatermarked
+                         or args.sample_type != 'abstracts_only' or experiment_variant
+                         or args.smoke or args.batch_size != 32):
+        raise ValueError('Augmentation supports Qwen-on-Qwen recitation, batch 32, without --smoke')
     if experiment_variant not in (None, "batch64"):
         raise ValueError(f"Unknown experiment variant: {experiment_variant}")
     if experiment_variant is not None and not cross_model:
@@ -164,6 +171,13 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
         result_dir = source_profile.experiment_dir(args.sample_type)
     if unwm:
         result_dir = f"_controls/{watermark_source}_unwatermarked"
+    if augmentation:
+        arm = f'qwen_prefix_augmentation/M{augmentation}'
+        adapter = ['lora_adapters', '_ablations', arm, args.sample_type,
+                   str(args.n_samples), str(args.batch_size)]
+        result_dir = f'_ablations/{arm}/{experiment}'
+        config['augmentation_m'] = augmentation
+        config['n_training_texts'] = args.n_samples * augmentation
     if args.smoke:
         adapter.insert(len(adapter) - 3, "smoke")
         result_dir += "-smoke"
@@ -204,6 +218,11 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     required = [*subset_kwargs.values(), "data/seeded_dataset.jsonl",
                 *[f"data/prompts/shared/{p}.json"
                   for p in ("titles_1", "titles_2", "titles_3", "questions")]]
+    augmented_texts = None
+    if augmentation:
+        from src.util.augmentation_data import load_augmentation
+        augmented_texts, augmentation_files = load_augmentation(args.n_samples, augmentation, subset)
+        required.extend(augmentation_files)
     open_set = None
     if mode == "open":
         open_set = load_open_keyspace_set(args.n_eval_samples)
@@ -229,6 +248,10 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     from src.util.watermark import init_watermarker, verify_watermarks_full, verify_watermarks_open_keyspace
 
     tokenizer = AutoTokenizer.from_pretrained(training_profile.model)
+    if augmentation:
+        from src.util.shared_prefix import prefix_ids
+        for i, text in enumerate(augmented_texts):
+            prefix_ids(tokenizer, text, subset['prefix_10'][i // augmentation])
     fingerprints = {p: sha256(REPO_ROOT / p) for p in sorted(set(required))}
     training_fingerprints = {p: v for p, v in fingerprints.items() if not p.endswith("_open.json")}
     versions = {p: version(p) for p in ("unsloth", "unsloth-zoo", "transformers", "waterfall", "torch", "peft")}
@@ -247,6 +270,8 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
                 raise FileExistsError("Training already complete. Use --resume or --eval-only.")
             if not complete.exists():
                 training_texts, heldout_texts = subset["T_ws"], heldout["T_ws"]
+                if augmentation:
+                    training_texts = augmented_texts
                 if unwm:
                     abstracts = load_abstracts(64000)
                     training_texts = [abstracts[i] for i in subset_indices(args.n_samples)]

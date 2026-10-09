@@ -1,0 +1,15 @@
+{
+  "n_evaluation": 1000,
+  "n_candidates": 5000,
+  "n_empty_texts": 2,
+  "acc_at_1": 0.913,
+  "acc_at_5": 0.942,
+  "grid_rank_acc_at_1": 0.915,
+  "selected_top1_accuracy": 0.913,
+  "mean_margin": 0.15673198796808718,
+  "rank_convention": "1 + number of candidate scores strictly greater than correct score",
+  "empty_text_policy": "Count as incorrect; retain in denominator",
+  "source": "llama",
+  "waterfall_version": "0.3.4",
+  "transformers_version": "5.5.0"
+}

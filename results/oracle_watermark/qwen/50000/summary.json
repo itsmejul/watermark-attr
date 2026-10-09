@@ -1,0 +1,15 @@
+{
+  "n_evaluation": 1000,
+  "n_candidates": 50000,
+  "n_empty_texts": 0,
+  "acc_at_1": 0.938,
+  "acc_at_5": 0.956,
+  "grid_rank_acc_at_1": 0.938,
+  "selected_top1_accuracy": 0.938,
+  "mean_margin": 0.23954869689047337,
+  "rank_convention": "1 + number of candidate scores strictly greater than correct score",
+  "empty_text_policy": "Count as incorrect; retain in denominator",
+  "source": "qwen",
+  "waterfall_version": "0.3.4",
+  "transformers_version": "5.5.0"
+}

@@ -67,6 +67,59 @@ RUN_VENV_DIR="$PWD/.venv-qwen" sbatch --partition=capella \
   src.data_creation.create_qwen_prefix_variants --version 2 --limit 1
 ```
 
+## Training and evaluating M=3 and M=5
+
+After all four watermark-generation jobs complete, submit from the repository root:
+
+```bash
+bash scripts/submit/submit_qwen_prefix_augmentation.sh capella
+```
+
+This uses `.venv-experiment` or the legacy `.venv-qwen-experiments`, **not** the
+watermark-generation environment. It validates complete, aligned variant files
+and manifests before submitting either job. Combining the versions is optional:
+training reads the individual version files directly.
+
+Two independent jobs train Qwen from the base model for 100 epochs on 3,000
+or 5,000 texts, preserving all canonical recitation settings (effective and
+microbatch size 32, learning rate 2e-4, max training length 300, EOS fix).
+The unchanged 200-document held-out set remains separate from training.
+Only training is expanded: evaluation uses the same original 1,000 prefix
+prompts and 1,000 unique keys, every five epochs. Only generated continuations
+are verified, as in M=1. Epoch 100 is the primary final comparison; all 20
+checkpoints are retained for trajectories. Equal epochs imply roughly 3x/5x
+the baseline training updates, not matched compute. No best-test-epoch selection.
+
+All new artifacts are isolated:
+
+```text
+lora_adapters/_ablations/qwen_prefix_augmentation/M{3,5}/abstracts_only/1000/32/
+training_metadata/_ablations/qwen_prefix_augmentation/M{3,5}/abstracts_only/1000/32/
+results/_ablations/qwen_prefix_augmentation/M{3,5}/experiment1/prefix_10/1000/32/<epoch>/
+```
+
+The submit helper uses `--resume` to resume interrupted training and skip
+completed evaluations. It never trains M=1 or writes to the canonical grid.
+For evaluation-only recovery, use the same module/arguments with `--eval-only --resume`:
+
+```bash
+python -m src.experiments.main.qwen_pipeline 1000 abstracts_only 32 1000 \
+  --augmentation-m 3 --eval-only --resume
+```
+
+Run the above recovery through the GPU launcher on HPC, not directly on a login node.
+After syncing results, export Acc@1, Acc@5, and margin for all checkpoints:
+
+```bash
+python -m src.eval.qwen_augmentation_eval --n-samples 1000
+```
+
+This reads M=1 from `results/qwen/experiment1/prefix_10/1000/32/` and writes
+`src/eval/tables/ablations/qwen_prefix_augmentation_1000.{csv,json}`. Missing
+checkpoints are explicitly marked missing (not zero). No extra generation is
+needed for this report. Supplementary similarity metrics and held-out-question
+generation are not part of this recitation-only ablation yet.
+
 # Direct-watermark oracle baseline
 
 From the repository root on Capella, submit the twelve independent baseline jobs:

@@ -13,6 +13,60 @@ Generation parameters are in `data/t_ws/config_*.json`. The Llama parameters are
 `src/eval/` the main eval notebooks, these contain our results in visual and table form.
 
 
+# Shared-prefix Qwen watermark augmentation (generation only)
+
+Generate four additional paraphrases for the canonical N=1,000 training subset:
+
+```bash
+bash scripts/submit/submit_qwen_prefix_variants.sh capella
+```
+
+This submits four independent jobs, versions 2--5, using `.venv-watermark`
+(or the legacy `.venv-qwen` if the renamed environment is absent).
+`RUN_VENV_DIR` can override this. Use the **generation** environment from
+`req-watermark.txt`, not the experiment environment.
+
+Each document keeps its existing key and exact saved ten-token evaluation
+prefix. The original unwatermarked abstract remains the user input to the same
+paraphrasing prompt; the saved prefix is appended to the assistant prefill.
+Sampling is unchanged (kappa 4, temperature 1, top-p 1, top-k 0, thinking off).
+Versions V2--V5 use base seeds 201, 202, 203, and 204, respectively.
+Document index i uses base_seed + i, saved in the manifest, for reproducible
+resumption. Seeds differ across versions for each document, but ranges overlap
+across different documents.
+The ten supplied tokens count against the 1.5-times-source-token generation
+budget. The first continuation token uses the prefix as Waterfall bigram
+context. Raw returned tokens preserve whitespace at the prefix boundary.
+
+Outputs are isolated under `data/t_ws/qwen_prefix_augmentation/1000/version_{2,3,4,5}/`.
+Each stores complete `watermarked_texts.json` (prefix included), aligned
+`inputs.json`, `manifest.json`, and `progress.json`. Checkpoints are written
+after every document, and repeat submissions resume. Inputs are fingerprinted;
+mismatching existing outputs are never silently overwritten. Empty or
+prefix-changing continuations fail visibly rather than being silently accepted.
+Canonical corpora, prompts, adapters, and results are not changed.
+
+After all four jobs complete, combine on the login node (no model/GPU needed):
+
+```bash
+python -m src.data_creation.create_qwen_prefix_variants --combine
+```
+
+This writes `data/t_ws/qwen_prefix_augmentation/1000/combined_versions.json`,
+one record per document with original text, key, prefix, and versions V1--V5.
+V1 is copied from the existing corpus. `summary.json` reports completeness and
+exact duplicate counts. No training is submitted and no detection-success
+filtering is performed. The Python entry point supports other `--n-samples`
+values when a corresponding canonical closed-grid reference exists.
+
+Optional one-document GPU smoke test before submitting all versions:
+
+```bash
+RUN_VENV_DIR="$PWD/.venv-qwen" sbatch --partition=capella \
+  --job-name=qwen-prefix-smoke scripts/launch_capella.sh \
+  src.data_creation.create_qwen_prefix_variants --version 2 --limit 1
+```
+
 # Direct-watermark oracle baseline
 
 From the repository root on Capella, submit the twelve independent baseline jobs:

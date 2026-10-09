@@ -547,11 +547,17 @@ def watermark(
     checkpoint_every=0,
     progress_metadata=None,
     max_new_texts=None,
+    fixed_prefixes=None,
 ):
     print("Starting watermarking")
     start_time = time.time()
     if not (len(T_os) == len(ids) == len(k_ps)):
         raise ValueError("T_os, ids, and k_ps must have the same length")
+    if fixed_prefixes is not None:
+        if len(fixed_prefixes) != len(T_os):
+            raise ValueError('Fixed prefixes must align with source documents')
+        if not config['do_sample_watermark'] or config['num_return_sequences'] != 1:
+            raise ValueError('Fixed-prefix mode requires single-output sampling')
 
     T_ws = []
     all_sts_scores = []
@@ -673,6 +679,11 @@ def watermark(
         n_gram,
         watermarkingFnClass,
     )
+    if fixed_prefixes is not None:
+        from src.util.shared_prefix import PrefixWatermarkProcessor
+        if not hasattr(watermarker.logits_processor, 'init_token_count'):
+            raise RuntimeError('Unsupported Waterfall prefix-context API')
+        watermarker.logits_processor = PrefixWatermarkProcessor(watermarker.logits_processor, 10)
     chat_template_kwargs = config.get("chat_template_kwargs", {})
     generation_seed = config.get("generation_seed")
 
@@ -714,6 +725,14 @@ def watermark(
         max_new_tokens = paraphrase_max_new_tokens(
             text, paraphrasing_prompt, tokenizer, config
         )
+        prefix_kwargs = {}
+        if fixed_prefixes is not None:
+            prefix = fixed_prefixes[local_index]
+            paraphrasing_prompt += prefix
+            max_new_tokens -= 10
+            if max_new_tokens < 1:
+                raise ValueError('Source length budget leaves no continuation tokens')
+            prefix_kwargs = dict(return_tokens=True)
     
         if do_sample: # sampling
             watermarked = watermarker.generate(
@@ -730,6 +749,7 @@ def watermark(
                 diversity_penalty=0.0,
                 num_return_sequences=num_return_sequences,
                 logits_processor=[],
+                **prefix_kwargs,
             )
         else: # beam search
             watermarked = watermarker.generate(
@@ -756,7 +776,11 @@ def watermark(
             else:
                 raise NotImplementedError("Currently, only paraphrased_versions=1 is supported")
         else:  # only one version was returned from watermarked, no need for STS scoring
-            T_w = watermarked[0]
+            if fixed_prefixes is None:
+                T_w = watermarked[0]
+            else:
+                from src.util.shared_prefix import join_continuation
+                T_w = join_continuation(tokenizer, prefix, watermarked['tokens'][0])
             T_ws.append(T_w)
             if return_sts_scores:
                 sts_score = STS_scorer(text, T_w, sts_model)

@@ -224,10 +224,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 5,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.003,
+    "acc_at_5": 0.004,
+    "mean_margin": -0.2782321867865976,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/5/verification_closed.json"
   },
   {
@@ -235,10 +235,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 10,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.003,
+    "acc_at_5": 0.007,
+    "mean_margin": -0.24618807434337214,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/10/verification_closed.json"
   },
   {
@@ -246,10 +246,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 15,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.001,
+    "acc_at_5": 0.017,
+    "mean_margin": -0.24097898950619856,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/15/verification_closed.json"
   },
   {
@@ -257,10 +257,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 20,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.02,
+    "acc_at_5": 0.039,
+    "mean_margin": -0.20673567907558754,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/20/verification_closed.json"
   },
   {
@@ -268,10 +268,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 25,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.024,
+    "acc_at_5": 0.047,
+    "mean_margin": -0.20002480158023536,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/25/verification_closed.json"
   },
   {
@@ -279,10 +279,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 30,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.05,
+    "acc_at_5": 0.088,
+    "mean_margin": -0.19822926369938068,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/30/verification_closed.json"
   },
   {
@@ -290,10 +290,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 35,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.095,
+    "acc_at_5": 0.144,
+    "mean_margin": -0.1661583345355466,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/35/verification_closed.json"
   },
   {
@@ -301,10 +301,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 40,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.134,
+    "acc_at_5": 0.189,
+    "mean_margin": -0.15852309799706563,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/40/verification_closed.json"
   },
   {
@@ -312,10 +312,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 45,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.158,
+    "acc_at_5": 0.212,
+    "mean_margin": -0.15104659260995687,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/45/verification_closed.json"
   },
   {
@@ -323,10 +323,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 50,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.187,
+    "acc_at_5": 0.241,
+    "mean_margin": -0.1493888352420181,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/50/verification_closed.json"
   },
   {
@@ -334,10 +334,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 55,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.205,
+    "acc_at_5": 0.258,
+    "mean_margin": -0.12922544621257112,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/55/verification_closed.json"
   },
   {
@@ -345,10 +345,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 60,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.249,
+    "acc_at_5": 0.303,
+    "mean_margin": -0.10055487455939874,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/60/verification_closed.json"
   },
   {
@@ -356,10 +356,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 65,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.304,
+    "acc_at_5": 0.366,
+    "mean_margin": -0.0871897329702042,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/65/verification_closed.json"
   },
   {
@@ -367,10 +367,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 70,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.311,
+    "acc_at_5": 0.383,
+    "mean_margin": -0.08153741722181439,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/70/verification_closed.json"
   },
   {
@@ -378,10 +378,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 75,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.243,
+    "acc_at_5": 0.31,
+    "mean_margin": -0.1243732163659297,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/75/verification_closed.json"
   },
   {
@@ -389,10 +389,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 80,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.312,
+    "acc_at_5": 0.373,
+    "mean_margin": -0.08771299366885796,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/80/verification_closed.json"
   },
   {
@@ -400,10 +400,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 85,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.398,
+    "acc_at_5": 0.464,
+    "mean_margin": -0.02941248623467982,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/85/verification_closed.json"
   },
   {
@@ -411,10 +411,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 90,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.461,
+    "acc_at_5": 0.523,
+    "mean_margin": -0.014958831344731152,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/90/verification_closed.json"
   },
   {
@@ -422,10 +422,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 95,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.514,
+    "acc_at_5": 0.578,
+    "mean_margin": 0.01038160118367523,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/95/verification_closed.json"
   },
   {
@@ -433,10 +433,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 100,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.568,
+    "acc_at_5": 0.637,
+    "mean_margin": 0.038820114220492544,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M3/experiment1/prefix_10/1000/32/100/verification_closed.json"
   },
   {
@@ -444,10 +444,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 5,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.004,
+    "acc_at_5": 0.011,
+    "mean_margin": -0.2831499583059922,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/5/verification_closed.json"
   },
   {
@@ -455,10 +455,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 10,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.012,
+    "acc_at_5": 0.023,
+    "mean_margin": -0.22794762613414787,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/10/verification_closed.json"
   },
   {
@@ -466,10 +466,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 15,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.016,
+    "acc_at_5": 0.04,
+    "mean_margin": -0.20289914838213008,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/15/verification_closed.json"
   },
   {
@@ -477,10 +477,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 20,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.033,
+    "acc_at_5": 0.064,
+    "mean_margin": -0.19211778633098583,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/20/verification_closed.json"
   },
   {
@@ -488,10 +488,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 25,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.042,
+    "acc_at_5": 0.088,
+    "mean_margin": -0.1643639186937362,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/25/verification_closed.json"
   },
   {
@@ -499,10 +499,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 30,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.048,
+    "acc_at_5": 0.109,
+    "mean_margin": -0.16188649517809972,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/30/verification_closed.json"
   },
   {
@@ -510,10 +510,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 35,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.06,
+    "acc_at_5": 0.103,
+    "mean_margin": -0.17096564274886622,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/35/verification_closed.json"
   },
   {
@@ -521,10 +521,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 40,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.101,
+    "acc_at_5": 0.158,
+    "mean_margin": -0.17223178249713963,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/40/verification_closed.json"
   },
   {
@@ -532,10 +532,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 45,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.116,
+    "acc_at_5": 0.166,
+    "mean_margin": -0.14880624388484284,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/45/verification_closed.json"
   },
   {
@@ -543,10 +543,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 50,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.138,
+    "acc_at_5": 0.195,
+    "mean_margin": -0.1437824973675888,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/50/verification_closed.json"
   },
   {
@@ -554,10 +554,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 55,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.134,
+    "acc_at_5": 0.188,
+    "mean_margin": -0.15725491733197122,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/55/verification_closed.json"
   },
   {
@@ -565,10 +565,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 60,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.177,
+    "acc_at_5": 0.24,
+    "mean_margin": -0.14705803468311204,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/60/verification_closed.json"
   },
   {
@@ -576,10 +576,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 65,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.174,
+    "acc_at_5": 0.228,
+    "mean_margin": -0.1479167057359591,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/65/verification_closed.json"
   },
   {
@@ -587,10 +587,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 70,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.197,
+    "acc_at_5": 0.26,
+    "mean_margin": -0.13184475567936899,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/70/verification_closed.json"
   },
   {
@@ -598,10 +598,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 75,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.204,
+    "acc_at_5": 0.255,
+    "mean_margin": -0.12396424048615154,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/75/verification_closed.json"
   },
   {
@@ -609,10 +609,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 80,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.24,
+    "acc_at_5": 0.297,
+    "mean_margin": -0.10963185012608301,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/80/verification_closed.json"
   },
   {
@@ -620,10 +620,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 85,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.228,
+    "acc_at_5": 0.283,
+    "mean_margin": -0.11505129797989502,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/85/verification_closed.json"
   },
   {
@@ -631,10 +631,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 90,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.242,
+    "acc_at_5": 0.287,
+    "mean_margin": -0.10979245934961364,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/90/verification_closed.json"
   },
   {
@@ -642,10 +642,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 95,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.217,
+    "acc_at_5": 0.278,
+    "mean_margin": -0.12505965958209708,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/95/verification_closed.json"
   },
   {
@@ -653,10 +653,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 100,
-    "status": "missing",
-    "acc_at_1": null,
-    "acc_at_5": null,
-    "mean_margin": null,
+    "status": "complete",
+    "acc_at_1": 0.265,
+    "acc_at_5": 0.328,
+    "mean_margin": -0.09542609640012961,
     "verification_path": "results/_ablations/qwen_prefix_augmentation/M5/experiment1/prefix_10/1000/32/100/verification_closed.json"
   }
 ]

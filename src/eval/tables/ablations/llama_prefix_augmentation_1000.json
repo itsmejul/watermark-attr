@@ -224,10 +224,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 5,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.001,
+    "acc_at_5": 0.005,
+    "mean_margin": -0.28123434983124024,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/5/verification_closed.json"
   },
   {
@@ -235,10 +235,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 10,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.017,
+    "acc_at_5": 0.053,
+    "mean_margin": -0.18776564605138266,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/10/verification_closed.json"
   },
   {
@@ -246,10 +246,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 15,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.111,
+    "acc_at_5": 0.204,
+    "mean_margin": -0.11713659605977592,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/15/verification_closed.json"
   },
   {
@@ -257,10 +257,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 20,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.164,
+    "acc_at_5": 0.285,
+    "mean_margin": -0.09136790350312367,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/20/verification_closed.json"
   },
   {
@@ -268,10 +268,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 25,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.223,
+    "acc_at_5": 0.359,
+    "mean_margin": -0.06879108206182719,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/25/verification_closed.json"
   },
   {
@@ -279,10 +279,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 30,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.285,
+    "acc_at_5": 0.426,
+    "mean_margin": -0.05093678271397948,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/30/verification_closed.json"
   },
   {
@@ -290,10 +290,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 35,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.313,
+    "acc_at_5": 0.47,
+    "mean_margin": -0.03708550950279459,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/35/verification_closed.json"
   },
   {
@@ -301,10 +301,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 40,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.305,
+    "acc_at_5": 0.449,
+    "mean_margin": -0.042943725002463906,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/40/verification_closed.json"
   },
   {
@@ -312,10 +312,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 45,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.306,
+    "acc_at_5": 0.442,
+    "mean_margin": -0.04665396263403818,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/45/verification_closed.json"
   },
   {
@@ -323,10 +323,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 50,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.32,
+    "acc_at_5": 0.473,
+    "mean_margin": -0.03606604250101372,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/50/verification_closed.json"
   },
   {
@@ -334,10 +334,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 55,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.347,
+    "acc_at_5": 0.528,
+    "mean_margin": -0.02620927600003779,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/55/verification_closed.json"
   },
   {
@@ -345,10 +345,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 60,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.289,
+    "acc_at_5": 0.441,
+    "mean_margin": -0.051009907064959406,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/60/verification_closed.json"
   },
   {
@@ -356,10 +356,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 65,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.341,
+    "acc_at_5": 0.506,
+    "mean_margin": -0.029938591219484806,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/65/verification_closed.json"
   },
   {
@@ -367,10 +367,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 70,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.315,
+    "acc_at_5": 0.473,
+    "mean_margin": -0.03970950439898297,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/70/verification_closed.json"
   },
   {
@@ -378,10 +378,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 75,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.3,
+    "acc_at_5": 0.458,
+    "mean_margin": -0.041536860808730126,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/75/verification_closed.json"
   },
   {
@@ -389,10 +389,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 80,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.297,
+    "acc_at_5": 0.48,
+    "mean_margin": -0.03994428368541412,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/80/verification_closed.json"
   },
   {
@@ -400,10 +400,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 85,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.297,
+    "acc_at_5": 0.465,
+    "mean_margin": -0.04204341783793643,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/85/verification_closed.json"
   },
   {
@@ -411,10 +411,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 90,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.259,
+    "acc_at_5": 0.403,
+    "mean_margin": -0.057023217575624584,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/90/verification_closed.json"
   },
   {
@@ -422,10 +422,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 95,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.31,
+    "acc_at_5": 0.486,
+    "mean_margin": -0.03680066799093038,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/95/verification_closed.json"
   },
   {
@@ -433,10 +433,10 @@
     "n_documents": 1000,
     "n_training_texts": 3000,
     "epoch": 100,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.317,
+    "acc_at_5": 0.501,
+    "mean_margin": -0.03356467343214899,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M3/experiment1/prefix_10/1000/32/100/verification_closed.json"
   },
   {
@@ -444,10 +444,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 5,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.004,
+    "acc_at_5": 0.018,
+    "mean_margin": -0.25009367322921755,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/5/verification_closed.json"
   },
   {
@@ -455,10 +455,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 10,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.046,
+    "acc_at_5": 0.113,
+    "mean_margin": -0.15517718178685755,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/10/verification_closed.json"
   },
   {
@@ -466,10 +466,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 15,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.1,
+    "acc_at_5": 0.197,
+    "mean_margin": -0.11717927371000406,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/15/verification_closed.json"
   },
   {
@@ -477,10 +477,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 20,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.157,
+    "acc_at_5": 0.279,
+    "mean_margin": -0.09608148909499868,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/20/verification_closed.json"
   },
   {
@@ -488,10 +488,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 25,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.203,
+    "acc_at_5": 0.348,
+    "mean_margin": -0.07723592666722834,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/25/verification_closed.json"
   },
   {
@@ -499,10 +499,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 30,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.232,
+    "acc_at_5": 0.389,
+    "mean_margin": -0.06635847827256657,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/30/verification_closed.json"
   },
   {
@@ -510,10 +510,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 35,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.206,
+    "acc_at_5": 0.351,
+    "mean_margin": -0.07366997688356787,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/35/verification_closed.json"
   },
   {
@@ -521,10 +521,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 40,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.221,
+    "acc_at_5": 0.372,
+    "mean_margin": -0.06957541971327737,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/40/verification_closed.json"
   },
   {
@@ -532,10 +532,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 45,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.225,
+    "acc_at_5": 0.377,
+    "mean_margin": -0.07200912770954893,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/45/verification_closed.json"
   },
   {
@@ -543,10 +543,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 50,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.208,
+    "acc_at_5": 0.378,
+    "mean_margin": -0.07272146966774017,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/50/verification_closed.json"
   },
   {
@@ -554,10 +554,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 55,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.213,
+    "acc_at_5": 0.364,
+    "mean_margin": -0.07456374579295516,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/55/verification_closed.json"
   },
   {
@@ -565,10 +565,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 60,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.226,
+    "acc_at_5": 0.404,
+    "mean_margin": -0.0640647666011937,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/60/verification_closed.json"
   },
   {
@@ -576,10 +576,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 65,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.213,
+    "acc_at_5": 0.382,
+    "mean_margin": -0.07083512243442237,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/65/verification_closed.json"
   },
   {
@@ -587,10 +587,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 70,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.222,
+    "acc_at_5": 0.405,
+    "mean_margin": -0.06712300945445895,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/70/verification_closed.json"
   },
   {
@@ -598,10 +598,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 75,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.244,
+    "acc_at_5": 0.403,
+    "mean_margin": -0.06448199111176654,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/75/verification_closed.json"
   },
   {
@@ -609,10 +609,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 80,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.219,
+    "acc_at_5": 0.402,
+    "mean_margin": -0.06471753422310576,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/80/verification_closed.json"
   },
   {
@@ -620,10 +620,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 85,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.231,
+    "acc_at_5": 0.4,
+    "mean_margin": -0.0656776142315939,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/85/verification_closed.json"
   },
   {
@@ -631,10 +631,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 90,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.208,
+    "acc_at_5": 0.394,
+    "mean_margin": -0.06516713539417833,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/90/verification_closed.json"
   },
   {
@@ -642,10 +642,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 95,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.239,
+    "acc_at_5": 0.417,
+    "mean_margin": -0.060907193469814956,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/95/verification_closed.json"
   },
   {
@@ -653,10 +653,10 @@
     "n_documents": 1000,
     "n_training_texts": 5000,
     "epoch": 100,
-    "status": "missing",
-    "acc_at_1": NaN,
-    "acc_at_5": NaN,
-    "mean_margin": NaN,
+    "status": "complete",
+    "acc_at_1": 0.221,
+    "acc_at_5": 0.415,
+    "mean_margin": -0.06573248842405155,
     "verification_path": "results/_ablations/llama_prefix_augmentation/M5/experiment1/prefix_10/1000/32/100/verification_closed.json"
   }
 ]

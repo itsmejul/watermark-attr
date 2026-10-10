@@ -122,17 +122,24 @@ def parse_args(mode, argv=None):
     return args
 
 
-def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_variant=None):
+def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_variant=None,
+         training_source="qwen"):
     args = parse_args(mode, argv)
-    training_profile = ExperimentProfile("qwen")
+    if training_source not in ('qwen', 'llama'):
+        raise ValueError(f'Unknown training model: {training_source}')
+    llama_augmentation = training_source == 'llama'
+    if llama_augmentation and (not args.augmentation_m or watermark_source != 'llama'):
+        raise ValueError('Llama entrypoint is restricted to Llama-on-Llama augmentation')
+    training_profile = ExperimentProfile('llama_eosfix' if llama_augmentation else 'qwen')
     if watermark_source not in ("qwen", "llama"):
         raise ValueError(f"Unknown watermark source: {watermark_source}")
-    cross_model = watermark_source == "llama"
+    cross_model = training_source != watermark_source
+    legacy_fourier = watermark_source == 'llama'
     augmentation = args.augmentation_m
     if augmentation and (cross_model or mode != 'watermarked' or args.unwatermarked
                          or args.sample_type != 'abstracts_only' or experiment_variant
                          or args.smoke or args.batch_size != 32):
-        raise ValueError('Augmentation supports Qwen-on-Qwen recitation, batch 32, without --smoke')
+        raise ValueError('Augmentation supports same-model recitation, batch 32, without --smoke')
     if experiment_variant not in (None, "batch64"):
         raise ValueError(f"Unknown experiment variant: {experiment_variant}")
     if experiment_variant is not None and not cross_model:
@@ -141,11 +148,17 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
         raise ValueError("The batch64 arm requires an effective batch size of exactly 64.")
     if cross_model and (mode not in ("watermarked", "open") or args.unwatermarked):
         raise ValueError("The Qwen-on-Llama pipeline only supports Llama-watermarked training data.")
-    source_profile = ExperimentProfile(watermark_source)
+    source_profile = ExperimentProfile('llama_eosfix' if llama_augmentation else watermark_source)
     unwm = mode == "unwatermarked" or args.unwatermarked
     config = training_profile.train_config(args.sample_type)
     config["batch_size"] = args.batch_size
     config["n_samples"] = args.n_samples
+    if llama_augmentation:
+        # Match full_pipeline --eos-fix, not the Qwen-specific LoRA settings.
+        config.update(preserve_eos=True, record_trainable_parameters=True,
+                      eos_fixed_generation=True, max_response_tokens=300,
+                      micro_batch_size=args.batch_size, inference_batch_size=128,
+                      save_resume_checkpoints=True)
     for attr, key in (("micro_batch_size", "micro_batch_size"), ("inference_batch_size", "inference_batch_size")):
         value = getattr(args, attr)
         if value is not None:
@@ -172,7 +185,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     if unwm:
         result_dir = f"_controls/{watermark_source}_unwatermarked"
     if augmentation:
-        arm = f'qwen_prefix_augmentation/M{augmentation}'
+        arm = f'{training_source}_prefix_augmentation/M{augmentation}'
         adapter = ['lora_adapters', '_ablations', arm, args.sample_type,
                    str(args.n_samples), str(args.batch_size)]
         result_dir = f'_ablations/{arm}/{experiment}'
@@ -206,7 +219,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
         raise ValueError("Training keys overlap held-out keys")
     if len(set(subset["ids"])) != 1:
         raise ValueError("This experiment expects one shared Waterfall ID")
-    if not cross_model:
+    if watermark_source == 'qwen':
         manifest_path = REPO_ROOT / source_profile.corpus_dir / "combined_manifest.json"
         if not manifest_path.is_file() or json.loads(manifest_path.read_text())["combined_count"] != 64000:
             raise ValueError("Combine all 13 complete Qwen watermark batches before running experiments.")
@@ -221,7 +234,8 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     augmented_texts = None
     if augmentation:
         from src.util.augmentation_data import load_augmentation
-        augmented_texts, augmentation_files = load_augmentation(args.n_samples, augmentation, subset)
+        augmented_texts, augmentation_files = load_augmentation(
+            args.n_samples, augmentation, subset, source=watermark_source)
         required.extend(augmentation_files)
     open_set = None
     if mode == "open":
@@ -257,7 +271,7 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
     versions = {p: version(p) for p in ("unsloth", "unsloth-zoo", "transformers", "waterfall", "torch", "peft")}
     manifest = dict(profile=cross_model_name if cross_model else source_profile.name,
                     watermark_source=watermark_source, detector_model=source_profile.model,
-                    legacy_fourier=cross_model, config=config, n_samples=args.n_samples, unwatermarked=unwm,
+                    legacy_fourier=legacy_fourier, config=config, n_samples=args.n_samples, unwatermarked=unwm,
                     inputs=training_fingerprints, versions=versions, subset_seed=48)
     with run_lock(adapter):
         existing = REPO_ROOT.joinpath(*metadata, "run_manifest.json")
@@ -334,11 +348,11 @@ def main(mode="watermarked", argv=None, watermark_source="qwen", experiment_vari
                 if mode == "open":
                     verify_watermarks_open_keyspace(
                         answers, subset["ids"][0], watermarker, output,
-                        legacy_fourier=cross_model, **common,
+                        legacy_fourier=legacy_fourier, **common,
                     )
                 else:
                     verify_watermarks_full(answers, subset["ids"][0], [subset["k_ps"][i] for i in indices],
-                                           watermarker, output, legacy_fourier=cross_model, **common)
+                                           watermarker, output, legacy_fourier=legacy_fourier, **common)
                 del watermarker
 
 

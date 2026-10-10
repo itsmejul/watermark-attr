@@ -65,6 +65,28 @@ class SharedPrefixTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             check_texts(['wrong continuation'], rows)
 
+    def test_llama_manifest_is_separate_and_preserves_legacy_length(self):
+        rows = [dict(document_index=3)]
+        manifest = variant_manifest({'kappa': 6}, rows, 2, source='llama')
+        self.assertEqual(manifest['source'], 'llama')
+        self.assertEqual(manifest['generation_seeds'], [201])
+        self.assertIn('legacy prompt-character', manifest['length_policy'])
+        self.assertIn('BOS', manifest['prefix_policy'])
+
+    def test_llama_prefix_includes_bos_in_ten_token_budget(self):
+        class BosTokenizer(CharacterTokenizer):
+            def encode(self, text, max_length=None, truncation=False, add_special_tokens=True):
+                ids = (['BOS'] if add_special_tokens else []) + list(text)
+                return ids[:max_length] if truncation else ids
+
+            def decode(self, ids, **kwargs):
+                return ''.join(i for i in ids if i != 'BOS')
+
+        tok = BosTokenizer()
+        self.assertEqual(len(prefix_ids(tok, '123456789 rest', '123456789')), 10)
+        self.assertEqual(len(tok.encode('123456789', add_special_tokens=False)), 9)
+        self.assertEqual(join_continuation(tok, '123456789', list(' rest')), '123456789 rest')
+
 
 if __name__ == '__main__':
     unittest.main()

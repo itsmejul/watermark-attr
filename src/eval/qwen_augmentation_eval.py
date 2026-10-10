@@ -8,13 +8,15 @@ from src.experiments.main.oracle_watermark_eval import read, select_indices, sum
 from src.util.filereader import REPO_ROOT, write_path_file_atomic
 
 
-def collect(n):
+def collect(n, source='qwen'):
+    if source not in ('qwen', 'llama'):
+        raise ValueError(f'Unknown source: {source}')
     keys = read(REPO_ROOT / 'data/keys.json')['k_ps']
     _, indices = select_indices(len(keys), n)
     expected = [keys[i] for i in indices]
     rows = []
     for m in (1, 3, 5):
-        directory = ('qwen' if m == 1 else f'_ablations/qwen_prefix_augmentation/M{m}')
+        directory = (source if m == 1 else f'_ablations/{source}_prefix_augmentation/M{m}')
         for epoch in range(5, 101, 5):
             path = REPO_ROOT / f'results/{directory}/experiment1/prefix_10/{n}/32/{epoch}/verification_closed.json'
             row = dict(m=m, n_documents=n, n_training_texts=n*m, epoch=epoch,
@@ -30,11 +32,11 @@ def collect(n):
     return rows
 
 
-def collect_losses(n):
+def collect_losses(n, source='qwen'):
     """Return saved train/held-out losses without choosing a best test epoch."""
     rows = []
     for m in (1, 3, 5):
-        directory = ('qwen-on-qwen' if m == 1 else f'_ablations/qwen_prefix_augmentation/M{m}')
+        directory = (f'{source}-on-{source}' if m == 1 else f'_ablations/{source}_prefix_augmentation/M{m}')
         path = REPO_ROOT / f'training_metadata/{directory}/abstracts_only/{n}/32/loss_history.json'
         if not path.exists():
             continue
@@ -67,11 +69,12 @@ def export_rows(rows, name):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--n-samples', type=int, default=1000)
+    parser.add_argument('--source', choices=('qwen', 'llama'), default='qwen')
     args = parser.parse_args()
-    rows = collect(args.n_samples)
-    name = f'qwen_prefix_augmentation_{args.n_samples}'
+    rows = collect(args.n_samples, args.source)
+    name = f'{args.source}_prefix_augmentation_{args.n_samples}'
     export_rows(rows, name)
-    export_rows(collect_losses(args.n_samples), name + '_losses')
+    export_rows(collect_losses(args.n_samples, args.source), name + '_losses')
     print(json.dumps([row for row in rows if row['epoch'] == 100], indent=2))
     print(f'Complete checkpoints: {sum(r["status"] == "complete" for r in rows)}/60')
 

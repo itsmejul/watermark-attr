@@ -729,7 +729,12 @@ def watermark(
         if fixed_prefixes is not None:
             prefix = fixed_prefixes[local_index]
             paraphrasing_prompt += prefix
-            max_new_tokens -= 10
+            prefix_count = (len(tokenizer.encode(prefix, add_special_tokens=False))
+                            if config.get('fixed_prefix_content_tokens') else 10)
+            if prefix_count < n_gram - 1:
+                raise ValueError('Insufficient fixed prefix for watermark context')
+            watermarker.logits_processor.prefix_tokens = prefix_count
+            max_new_tokens -= prefix_count
             if max_new_tokens < 1:
                 raise ValueError('Source length budget leaves no continuation tokens')
             prefix_kwargs = dict(return_tokens=True)

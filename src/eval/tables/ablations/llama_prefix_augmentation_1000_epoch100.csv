@@ -1,0 +1,4 @@
+m,n_documents,n_training_texts,status,acc_at_1,acc_at_5,mean_margin,train_loss,heldout_loss,global_step
+1,1000,1000,complete,0.839,0.896,0.13743890052335336,0.052268724888563156,6.528896331787109,3200.0
+3,1000,3000,missing,,,,,,
+5,1000,5000,missing,,,,,,

@@ -216,6 +216,37 @@ class PipelineTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 pipeline.main(mode, ['10', task, '32', '5', '--augmentation-m', '3'])
 
+    def test_llama_augmentation_preserves_baseline_settings_and_paths(self):
+        for m in (3, 5):
+            texts = [f'llama variant {i}' for i in range(10 * m)]
+            with patch('src.util.augmentation_data.load_augmentation', return_value=(texts, [])) as load, \
+                 patch('src.util.shared_prefix.prefix_ids'), \
+                 contextlib.redirect_stdout(io.StringIO()):
+                args = ['10', 'abstracts_only', '32', '5', '--augmentation-m', str(m), '--resume']
+                pipeline.main('watermarked', args, watermark_source='llama', training_source='llama')
+                n_train, n_ask = len(self.calls['train']), len(self.calls['ask'])
+                pipeline.main('watermarked', args, watermark_source='llama', training_source='llama')
+                self.assertEqual(len(self.calls['train']), n_train)
+                self.assertEqual(len(self.calls['ask']), n_ask)
+                self.assertEqual(load.call_args.kwargs['source'], 'llama')
+            trained, config, kwargs = self.calls['train'][-1]
+            self.assertEqual(trained, texts)
+            self.assertEqual(config['train_model'], 'meta-llama/Llama-3.1-8B-Instruct')
+            self.assertEqual(set(config['target_modules']), {'q_proj', 'k_proj', 'v_proj', 'o_proj'})
+            self.assertEqual(config['epochs'], 100)
+            self.assertEqual(config['micro_batch_size'], 32)
+            self.assertEqual(config['learning_rate'], 2e-4)
+            self.assertTrue(config['preserve_eos'])
+            self.assertTrue(config['eos_fixed_generation'])
+            self.assertEqual(config['max_response_tokens'], 300)
+            self.assertEqual(kwargs['max_length'], 300)
+            path, adapter, prompts = self.calls['ask'][-1]
+            self.assertEqual(path[1], f'_ablations/llama_prefix_augmentation/M{m}/experiment1')
+            self.assertIn(f'llama_prefix_augmentation/M{m}', adapter)
+            self.assertEqual(len(prompts), 5)
+            self.assertTrue(self.calls['verify'][-1][2]['legacy_fourier'])
+            self.assertEqual(len(self.calls['verify'][-1][2]['candidate_k_ps']), 10)
+
 
 if __name__ == "__main__":
     unittest.main()

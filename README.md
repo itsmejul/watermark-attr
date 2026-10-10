@@ -120,6 +120,67 @@ checkpoints are explicitly marked missing (not zero). No extra generation is
 needed for this report. Supplementary similarity metrics and held-out-question
 generation are not part of this recitation-only ablation yet.
 
+## Llama M=1/3/5: one-command augmentation experiment
+
+From the repository root on Capella:
+
+```bash
+bash scripts/submit/submit_llama_prefix_augmentation.sh capella
+```
+
+This submits **six jobs**: four independent watermark jobs (V2--V5), then
+M=3 training/evaluation after V2/V3 succeed and M=5 after all four succeed.
+Invalid dependencies are cancelled rather than left pending indefinitely.
+No combine step or manual second submission is required. Existing M=1 results
+are read from `results/llama/experiment1/prefix_10/1000/32/`; no M=1 job is created.
+
+The helper selects `.venv-watermark` and `.venv-experiment`, falling back to
+`.venv-qwen` and `.venv-qwen-experiments`. Override them independently using
+`WATERMARK_VENV_DIR` and `EXPERIMENT_VENV_DIR` if necessary. Generation uses
+Waterfall 0.3.4 / Transformers 5.17.0; training/evaluation uses Waterfall 0.3.4 /
+Transformers 5.5.0. Llama model access is required. The tokenizer preflight uses
+the same `HF_HOME` as the compute launcher, to catch access errors early.
+
+The selected 1,000 documents, keys, original abstracts and saved prefix strings
+match the canonical Llama grid. Base generation seeds are 201, 202, 203, 204,
+plus the sorted-subset index. Llama's recorded generation settings remain
+kappa 6, temperature 0.5, top-p 0.9, top-k 50. The legacy prompt-character
+length budget is retained; the number of supplied prefix content tokens is
+subtracted. A saved Llama "10-token" prefix includes BOS and therefore has nine
+visible text tokens. Those strings are reused verbatim, not replaced with ten
+new content tokens. Cosine-only keys are required so the Fourier generation
+function agrees with the historical corpus; evaluation uses legacy scoring.
+The new generation environment is recorded in each manifest; this does not
+claim bitwise reproduction of the original corpus's unrecorded generation seed
+or historical dependency behavior.
+
+Training matches the EOS-fixed Llama M=1 configuration: Llama-3.1-8B-Instruct,
+q/k/v/o LoRA projections, rank/alpha 16, learning rate 2e-4, batch/microbatch 32,
+100 epochs, max training length 300, EOS-preserving targets. Epoch-100 results
+are the primary comparison; verification is also performed every five epochs
+on generated continuations with the original 1,000 prompts and candidate keys.
+Extra Trainer recovery checkpoints enable resumption but do not change the
+optimization settings. The unchanged held-out set is not augmented.
+
+```text
+data/t_ws/llama_prefix_augmentation/1000/version_{2,3,4,5}/
+lora_adapters/_ablations/llama_prefix_augmentation/M{3,5}/abstracts_only/1000/32/
+training_metadata/_ablations/llama_prefix_augmentation/M{3,5}/abstracts_only/1000/32/
+results/_ablations/llama_prefix_augmentation/M{3,5}/experiment1/prefix_10/1000/32/<epoch>/
+```
+
+After syncing, run `src/eval/llama_prefix_augmentation_eval.ipynb` for the
+three-way accuracy/loss plots and CSV tables. Alternatively:
+
+```bash
+python -m src.eval.qwen_augmentation_eval --source llama --n-samples 1000
+```
+
+The shared reporting helper keeps the Qwen default for backwards compatibility.
+Llama exports use `llama_prefix_augmentation_1000*` under `src/eval/tables/ablations/`,
+and figures use `src/eval/figures/ablations/llama_prefix_augmentation/`.
+No new auxiliary/WBR metrics are included.
+
 # Direct-watermark oracle baseline
 
 From the repository root on Capella, submit the twelve independent baseline jobs:
